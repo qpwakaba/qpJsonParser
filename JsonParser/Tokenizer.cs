@@ -10,8 +10,8 @@ namespace qpwakaba
     public class Tokenizer : IEnumerator<Token>, IEnumerable<Token>
     {
         private readonly TextReader reader;
-        private readonly ITokenizationRule rule;
-        public Tokenizer(TextReader reader, ITokenizationRule rule)
+        private readonly ITokenRule rule;
+        public Tokenizer(TextReader reader, ITokenRule rule)
         {
             this.reader = reader;
             this.rule = rule;
@@ -110,7 +110,7 @@ namespace qpwakaba
         public void Reset() => throw new NotSupportedException();
     }
 
-    public interface ITokenizationRule
+    public interface ITokenRule
     {
         Tokenizer.TokenSplitType ProcessCharacter(char c, char? previousOfToken, string token);
     }
