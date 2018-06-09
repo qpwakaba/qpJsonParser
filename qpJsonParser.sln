@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.27130.2010
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "qpJsonParser", "qpJsonParser\qpJsonParser.csproj", "{E8D4536C-00A1-4A77-AB93-30A3F0A65F7C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "qpJsonParser.Test", "qpJsonParserTest (.NET Framework)\qpJsonParser.Test.csproj", "{913BF665-5851-4232-883F-580A96EE12D2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "qpJsonParser.Test", "qpJsonParser.Test\qpJsonParser.Test.csproj", "{913BF665-5851-4232-883F-580A96EE12D2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B2EACEE7-8AB0-444D-959F-FE1A74D1884D}"
 	ProjectSection(SolutionItems) = preProject
