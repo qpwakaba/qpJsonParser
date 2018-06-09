@@ -57,6 +57,7 @@
   <ItemGroup>
     <Compile Include="JsonParserTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="OrderedDictionaryTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

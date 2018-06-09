@@ -379,6 +379,11 @@ namespace qpwakaba.Tests
                 JsonParser.Parse(dummyJson),
                 JsonParser.Parse(dummyJson)
             );
+
+            Assert.AreEqual(
+                JsonParser.Parse(dummyJson, false),
+                JsonParser.Parse(dummyJson, true)
+            );
         }
 
         private static IEnumerable<IJsonValue> ParseTestCases()
