@@ -17,22 +17,24 @@ namespace qpwakaba.Utils
     {
         private readonly OrderedDictionary dictionary;
         public OrderedDictionary() : this(null) { }
-        public OrderedDictionary(IEqualityComparer<TKey> comparer) => this.dictionary = new OrderedDictionary(comparer.ToNonGeneric());
+        public OrderedDictionary(IEqualityComparer<TKey> comparer)
+            => this.dictionary = new OrderedDictionary((comparer ?? EqualityComparer<TKey>.Default).ToNonGeneric());
         public OrderedDictionary(int capacity) : this(capacity, null) { }
-        public OrderedDictionary(int capacity, IEqualityComparer<TKey> comparer) => this.dictionary = new OrderedDictionary(capacity, comparer.ToNonGeneric());
+        public OrderedDictionary(int capacity, IEqualityComparer<TKey> comparer)
+            => this.dictionary = new OrderedDictionary(capacity, (comparer ?? EqualityComparer<TKey>.Default).ToNonGeneric());
 
         public TValue this[int index]
         {
-            get => (TValue) ((IOrderedDictionary) this)[index];
-            set => ((IOrderedDictionary) this)[index] = value;
+            get => (TValue) this.dictionary[index];
+            set => this.dictionary[index] = value;
         }
         public TValue this[TKey key]
         {
-            get => (TValue) ((IOrderedDictionary) this)[key];
-            set => ((IOrderedDictionary) this)[key] = value;
+            get => (TValue) this.dictionary[key];
+            set => this.dictionary[key] = value;
         }
 
-        public object this[object key]
+        object IDictionary.this[object key]
         {
             get {
                 if (!(key is TKey))
@@ -96,8 +98,17 @@ namespace qpwakaba.Utils
         }
         bool IDictionary.Contains(object key) => this.dictionary.Contains(key);
         public bool ContainsKey(TKey key) => ((IDictionary) this).Contains(key);
-        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) => this.CopyTo(array, arrayIndex);
-        public void CopyTo(Array array, int index) => this.dictionary.CopyTo(array, index);
+        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int index)
+        {
+            var enumerator = this.dictionary.GetEnumerator();
+            enumerator.MoveNext();
+            for (int i = 0; i < this.dictionary.Count; i++, enumerator.MoveNext())
+            {
+                var entry = (DictionaryEntry) enumerator.Current;
+                array[i + index] = new KeyValuePair<TKey, TValue>((TKey)entry.Key, (TValue)entry.Value);
+            }
+        }
+        void ICollection.CopyTo(Array array, int index) => this.dictionary.CopyTo(array, index);
 
         public void Insert(int index, object key, object value) => this.dictionary.Insert(index, key, value);
         public void Insert(int index, TKey key, TValue value) => this.Insert(index, key, value);
