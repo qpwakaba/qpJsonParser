@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -106,7 +106,7 @@ namespace qpwakaba
         public IEnumerator<Token> GetEnumerator() => this;
         IEnumerator IEnumerable.GetEnumerator() => this;
 
-        public void Dispose() => throw new TODO();
+        public void Dispose() { }
         public void Reset() => throw new NotSupportedException();
     }
 
