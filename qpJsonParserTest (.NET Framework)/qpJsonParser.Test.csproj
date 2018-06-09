@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>qpwakaba.Tests</RootNamespace>
-    <AssemblyName>qpJsonParserTest %28.NET Framework%29</AssemblyName>
+    <AssemblyName>qpJsonParser.Test</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
@@ -64,11 +64,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\qpJsonParser\qpJsonParser.csproj">
-      <Project>{312a684a-f0bc-4e84-b13d-2d90000eca03}</Project>
+      <Project>{e8d4536c-00a1-4a77-ab93-30a3f0a65f7c}</Project>
       <Name>qpJsonParser</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
