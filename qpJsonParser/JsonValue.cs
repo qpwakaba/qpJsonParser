@@ -114,7 +114,7 @@ namespace qpwakaba
         }
         public JsonNumber(float value) => this.FloatValue = value;
         public JsonNumber(double value) => this.DoubleValue = value;
-        public JsonNumber(int value) => this.IntValue = value;
+        public JsonNumber(int value) => this.IntegerValue = value;
         public JsonNumber(long value) => this.LongValue = value;
         public JsonNumber(uint value) => this.UIntValue = value;
         public JsonNumber(ulong value) => this.ULongValue = value;
@@ -131,7 +131,7 @@ namespace qpwakaba
             get => double.Parse(this.StringValue);
             set => this.StringValue = value.ToString();
         }
-        public virtual int IntValue
+        public virtual int IntegerValue
         {
             get => (int) this.LongValue;
             set => this.StringValue = value.ToString();
@@ -456,7 +456,7 @@ namespace qpwakaba
         JsonTokenType IJsonToken.Type => JsonTokenType.Value;
         JsonValueType IJsonValue.Type => JsonValueType.Number;
         public int CompareTo(object obj) => this.DecimalValue.CompareTo(obj);
-        public int CompareTo(int other) => this.IntValue.CompareTo(other);
+        public int CompareTo(int other) => this.IntegerValue.CompareTo(other);
         public int CompareTo(long other) => this.LongValue.CompareTo(other);
         public int CompareTo(float other) => this.FloatValue.CompareTo(other);
         public int CompareTo(double other) => this.DoubleValue.CompareTo(other);
@@ -471,17 +471,17 @@ namespace qpwakaba
         DateTime IConvertible.ToDateTime(IFormatProvider provider) => ((IConvertible) this.StringValue).ToDateTime(provider);
         decimal IConvertible.ToDecimal(IFormatProvider provider) => this.DecimalValue;
         double IConvertible.ToDouble(IFormatProvider provider) => this.DoubleValue;
-        short IConvertible.ToInt16(IFormatProvider provider) => (short) this.IntValue;
-        int IConvertible.ToInt32(IFormatProvider provider) => this.IntValue;
+        short IConvertible.ToInt16(IFormatProvider provider) => (short) this.IntegerValue;
+        int IConvertible.ToInt32(IFormatProvider provider) => this.IntegerValue;
         long IConvertible.ToInt64(IFormatProvider provider) => this.LongValue;
-        sbyte IConvertible.ToSByte(IFormatProvider provider) => (sbyte) this.IntValue;
+        sbyte IConvertible.ToSByte(IFormatProvider provider) => (sbyte) this.IntegerValue;
         float IConvertible.ToSingle(IFormatProvider provider) => this.FloatValue;
         string IConvertible.ToString(IFormatProvider provider) => this.StringValue.ToString(provider);
         object IConvertible.ToType(Type conversionType, IFormatProvider provider) => ((IConvertible) this.StringValue).ToType(conversionType, provider);
         ushort IConvertible.ToUInt16(IFormatProvider provider) => ((IConvertible) this.StringValue).ToUInt16(provider);
         uint IConvertible.ToUInt32(IFormatProvider provider) => ((IConvertible) this.StringValue).ToUInt32(provider);
         ulong IConvertible.ToUInt64(IFormatProvider provider) => ((IConvertible) this.StringValue).ToUInt64(provider);
-        public bool Equals(int other) => this.IntValue.Equals(other);
+        public bool Equals(int other) => this.IntegerValue.Equals(other);
         public bool Equals(long other) => this.LongValue.Equals(other);
         public bool Equals(uint other) => this.UIntValue.Equals(other);
         public bool Equals(ulong other) => this.ULongValue.Equals(other);

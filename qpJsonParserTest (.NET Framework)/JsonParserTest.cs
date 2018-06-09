@@ -268,7 +268,7 @@ namespace qpwakaba.Tests
             Assert.AreEqual(
                 (int) 0,
                 (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().IntValue
+                    .Cast<JsonNumber>().IntegerValue
             );
             Assert.AreEqual(
                 (long) 0,
@@ -339,7 +339,7 @@ namespace qpwakaba.Tests
             Assert.AreEqual(
                 (int) 5000,
                 (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().IntValue
+                    .Cast<JsonNumber>().IntegerValue
             );
             Assert.AreEqual(
                 (long) 5000,
