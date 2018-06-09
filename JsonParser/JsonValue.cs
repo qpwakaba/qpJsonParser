@@ -825,18 +825,16 @@ namespace qpwakaba
                 return false;
 
             var other = (JsonObject) obj;
+            if (this.Parameters.Count != other.Parameters.Count)
+                return false;
 
-            var thisEnumerator = this.GetEnumerator();
-            var otherEnumerator = other.GetEnumerator();
+            var enumerator = this.GetEnumerator();
 
-            while (true)
+            while (enumerator.MoveNext())
             {
-                bool thisMoveNext = thisEnumerator.MoveNext();
-                if (thisMoveNext != otherEnumerator.MoveNext())
-                    return false;
-                if (!thisMoveNext)
-                    break;
-                if (!thisEnumerator.Current.Equals(otherEnumerator.Current))
+                var thisValue = enumerator.Current.Value;
+                var otherValue = other[enumerator.Current.Key];
+                if (!thisValue.Equals(otherValue))
                     return false;
             }
             return true;
@@ -844,11 +842,26 @@ namespace qpwakaba
         public override int GetHashCode()
         {
             int hashCode = 17;
+            var sortedParameters = new List<KeyValuePair<string, IJsonValue>>(this.Parameters);
+            sortedParameters.Sort(KeyComparator.Instance);
             foreach (var parameter in this.Parameters)
             {
-                hashCode = hashCode * 31 + parameter.GetHashCode();
+                hashCode = hashCode * 31 + (parameter.Key.GetHashCode() ^ parameter.Value.GetHashCode());
             }
             return hashCode;
+        }
+
+        private class KeyComparator : IComparer<KeyValuePair<string, IJsonValue>>
+        {
+            public static KeyComparator Instance { get; }
+            static KeyComparator()
+            {
+                Instance = new KeyComparator();
+            }
+            private KeyComparator() { }
+
+            public int Compare(KeyValuePair<string, IJsonValue> x, KeyValuePair<string, IJsonValue> y)
+                => string.Compare(x.Key, y.Key);
         }
         #endregion
 
