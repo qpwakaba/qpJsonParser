@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-using TODO = System.NotImplementedException;
 namespace qpwakaba
 {
     public class Tokenizer : IEnumerator<Token>, IEnumerable<Token>
