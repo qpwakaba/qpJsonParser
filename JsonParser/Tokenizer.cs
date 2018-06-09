@@ -30,76 +30,76 @@ namespace qpwakaba
             Skip
         }
 
-        private StringBuilder tokenBuilder = new StringBuilder();
+        private readonly StringBuilder tokenBuilder = new StringBuilder();
         private char? previousCharacter = null;
         private bool IsPreviousSplitTypeBeforeAndAfter = false;
         public bool MoveNext()
         {
-            if (IsPreviousSplitTypeBeforeAndAfter)
+            if (this.IsPreviousSplitTypeBeforeAndAfter)
             {
-                IsPreviousSplitTypeBeforeAndAfter = false;
-                this.Current = new Token(tokenBuilder.ToString());
-                tokenBuilder.Length = 0;
+                this.IsPreviousSplitTypeBeforeAndAfter = false;
+                this.Current = new Token(this.tokenBuilder.ToString());
+                this.tokenBuilder.Length = 0;
                 return this.Current.ToString().Length > 0;
             }
-            for (int read = reader.Read(); read >= 0; read = reader.Read())
+            for (int read = this.reader.Read(); read >= 0; read = this.reader.Read())
             {
                 char c = (char)read;
-                switch (rule.ProcessCharacter(c, previousCharacter, tokenBuilder.ToString()))
+                switch (this.rule.ProcessCharacter(c, this.previousCharacter, this.tokenBuilder.ToString()))
                 {
                     case TokenSplitType.Concat:
-                        {
-                            tokenBuilder.Append(c);
-                            previousCharacter = c;
-                            break;
-                        }
+                    {
+                        this.tokenBuilder.Append(c);
+                        this.previousCharacter = c;
+                        break;
+                    }
                     case TokenSplitType.BeforeAndAfter:
-                        if (tokenBuilder.Length == 0)
+                        if (this.tokenBuilder.Length == 0)
                         {
                             goto case TokenSplitType.After;
                         }
                         else
                         {
-                            IsPreviousSplitTypeBeforeAndAfter = true;
+                            this.IsPreviousSplitTypeBeforeAndAfter = true;
                             goto case TokenSplitType.Before;
                         }
                     case TokenSplitType.Before:
+                    {
+                        if (this.tokenBuilder.Length > 0)
                         {
-                            if (tokenBuilder.Length > 0)
-                            {
-                                this.Current = new Token(tokenBuilder.ToString());
-                                tokenBuilder.Length = 0;
-                                tokenBuilder.Append(c);
-                                previousCharacter = c;
-                                return this.Current.ToString().Length > 0;
-                            }
-                            else
-                            {
-                                tokenBuilder.Append(c);
-                                previousCharacter = c;
-                                break;
-                            }
+                            this.Current = new Token(this.tokenBuilder.ToString());
+                            this.tokenBuilder.Length = 0;
+                            this.tokenBuilder.Append(c);
+                            this.previousCharacter = c;
+                            return this.Current.ToString().Length > 0;
                         }
+                        else
+                        {
+                            this.tokenBuilder.Append(c);
+                            this.previousCharacter = c;
+                            break;
+                        }
+                    }
                     case TokenSplitType.After:
-                        {
-                            tokenBuilder.Append(c);
-                            this.Current = new Token(tokenBuilder.ToString());
-                            tokenBuilder.Length = 0;
-                            previousCharacter = null;
-                            return this.Current.ToString().Length > 0;
-                        }
+                    {
+                        this.tokenBuilder.Append(c);
+                        this.Current = new Token(this.tokenBuilder.ToString());
+                        this.tokenBuilder.Length = 0;
+                        this.previousCharacter = null;
+                        return this.Current.ToString().Length > 0;
+                    }
                     case TokenSplitType.Skip:
-                        {
-                            if (tokenBuilder.Length == 0) continue;
-                            this.Current = new Token(tokenBuilder.ToString());
-                            tokenBuilder.Length = 0;
-                            previousCharacter = null;
-                            return this.Current.ToString().Length > 0;
-                        }
+                    {
+                        if (this.tokenBuilder.Length == 0) continue;
+                        this.Current = new Token(this.tokenBuilder.ToString());
+                        this.tokenBuilder.Length = 0;
+                        this.previousCharacter = null;
+                        return this.Current.ToString().Length > 0;
+                    }
                 }
             }
-            this.Current = new Token(tokenBuilder.ToString());
-            tokenBuilder.Length = 0;
+            this.Current = new Token(this.tokenBuilder.ToString());
+            this.tokenBuilder.Length = 0;
             return this.Current.ToString().Length > 0;
         }
 
@@ -107,6 +107,7 @@ namespace qpwakaba
         IEnumerator IEnumerable.GetEnumerator() => this;
 
         public void Dispose() { }
+
         public void Reset() => throw new NotSupportedException();
     }
 
@@ -119,6 +120,6 @@ namespace qpwakaba
     {
         private readonly string token;
         public Token(string token) => this.token = token;
-        public override string ToString() => token;
+        public override string ToString() => this.token;
     }
 }
