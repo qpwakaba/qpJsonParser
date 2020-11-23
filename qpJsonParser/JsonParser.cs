@@ -105,15 +105,20 @@ namespace qpwakaba
 
         private readonly StringBuilder buf = new();
         private bool IsInString { get; set; } = false;
-        public IJsonValue Parse(string json, bool keepOrder = false)
+        public dynamic? Dynamic(string json) => Parse(json);
+        public dynamic? Dynamic(string json, bool keepOrder) => Parse(json, keepOrder);
+        public JsonValue? Parse(string json) => Parse(json, false);
+        public JsonValue? Parse(string json, bool keepOrder)
         {
             using (var reader = new StringReader(json))
             {
                 return Parse(reader, keepOrder);
             }
         }
-        public IJsonValue Parse(TextReader reader) => Parse(reader, false);
-        public IJsonValue Parse(TextReader reader, bool keepOrder)
+        public dynamic? Dynamic(TextReader reader) => Parse(reader);
+        public dynamic? Dynamic(TextReader reader, bool keepOrder) => Parse(reader, keepOrder);
+        public JsonValue? Parse(TextReader reader) => Parse(reader, false);
+        public JsonValue? Parse(TextReader reader, bool keepOrder)
         {
             var value = ParseValue();
             return (peekOrReadNonWhiteSpaceNullable()) switch
@@ -122,7 +127,7 @@ namespace qpwakaba
                 _ => throw new InvalidDataException(),
             };
 
-            IJsonValue ParseValue()
+            JsonValue? ParseValue()
             {
                 return peekOrReadNonWhiteSpaceNullable() switch
                 {
@@ -178,7 +183,7 @@ namespace qpwakaba
                     JsonString name = ParseString();
                     if (readNonWhiteSpace() != jsonNameSeparator)
                         throw new InvalidDataException();
-                    IJsonValue value = ParseValue();
+                    JsonValue? value = ParseValue();
                     obj[name.Value] = value;
                     switch (peekOrReadNonWhiteSpace())
                     {
@@ -208,7 +213,7 @@ namespace qpwakaba
                         break;
                     case char c when '1' <= c && c <= '9':
                         buf.Append(read());
-                        while (IsDigit(peek()))
+                        while (peekNullable() is char cc && IsDigit(cc))
                             buf.Append(read());
                         break;
                     default:
@@ -268,7 +273,7 @@ namespace qpwakaba
                     }
                 }
             }
-            IJsonValue ParseLiteral()
+            JsonValue? ParseLiteral()
             {
                 switch (peek())
                 {
@@ -298,7 +303,7 @@ namespace qpwakaba
                         if (readChecked() != 'l') break;
                         if (readChecked() != 'l') break;
                         if (peekNullable() is char c && IsLiteralChar(c)) break;
-                        return new JsonNull();
+                        return null;
                     }
                 }
                 throw new InvalidDataException();
@@ -348,11 +353,17 @@ namespace qpwakaba
             char peekOrReadNonWhiteSpace() => peekOrReadNonWhiteSpaceNullable() ?? throw new InvalidDataException();
         }
 
-        public static IJsonValue ParseOnce(string json) => ParseOnce(new StringReader(json));
-        public static IJsonValue ParseOnce(string json, bool keepOrder) => ParseOnce(new StringReader(json), keepOrder);
-        public static IJsonValue ParseOnce(TextReader reader)
+        public static dynamic? DynamicOnce(string json) => ParseOnce(json);
+        public static JsonValue? ParseOnce(string json) => ParseOnce(new StringReader(json));
+        public static dynamic? DynamicOnce(string json, bool keepOrder) => ParseOnce(json, keepOrder);
+        public static JsonValue? ParseOnce(string json, bool keepOrder) => ParseOnce(new StringReader(json), keepOrder);
+        public static dynamic? DynamicOnce(TextReader reader)
+            => ParseOnce(reader);
+        public static JsonValue? ParseOnce(TextReader reader)
             => new JsonParser().Parse(reader);
-        public static IJsonValue ParseOnce(TextReader reader, bool keepOrder)
+        public static dynamic? DynamicOnce(TextReader reader, bool keepOrder)
+            => ParseOnce(reader, keepOrder);
+        public static JsonValue? ParseOnce(TextReader reader, bool keepOrder)
             => new JsonParser().Parse(reader, keepOrder);
     }
 

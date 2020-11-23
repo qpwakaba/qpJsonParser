@@ -130,7 +130,7 @@ namespace qpwakaba.Tests
             (
                 new JsonObject
                 (
-                    new KeyValuePair<string, IJsonValue>("out", new JsonString("safe"))
+                    new KeyValuePair<string, JsonValue?>("out", new JsonString("safe"))
                 ),
                 JsonParser.ParseOnce("{\"out\": \"safe\"}")
             );
@@ -138,8 +138,8 @@ namespace qpwakaba.Tests
             (
                 new JsonObject
                 (
-                    new KeyValuePair<string, IJsonValue>("1", new JsonString("value1")),
-                    new KeyValuePair<string, IJsonValue>("2", new JsonString("value2"))
+                    new KeyValuePair<string, JsonValue?>("1", new JsonString("value1")),
+                    new KeyValuePair<string, JsonValue?>("2", new JsonString("value2"))
                 ),
                 JsonParser.ParseOnce("{\"1\": \"value1\", \"2\": \"value2\"}")
             );
@@ -148,8 +148,8 @@ namespace qpwakaba.Tests
                 (
                     new JsonObject
                     (
-                        new KeyValuePair<string, IJsonValue>("1", new JsonNumber(0.5)),
-                        new KeyValuePair<string, IJsonValue>("2", new JsonNumber(-1.0E6))
+                        new KeyValuePair<string, JsonValue?>("1", new JsonNumber(0.5)),
+                        new KeyValuePair<string, JsonValue?>("2", new JsonNumber(-1.0E6))
                     ),
                     JsonParser.ParseOnce("{\"1\": 0.5, \"2\": -1.0E6}")
                 );
@@ -157,8 +157,8 @@ namespace qpwakaba.Tests
                 (
                     new JsonObject
                     (
-                        new KeyValuePair<string, IJsonValue>("1", new JsonNumber((decimal) 0.5)),
-                        new KeyValuePair<string, IJsonValue>("2", new JsonNumber((decimal) -1.0E6))
+                        new KeyValuePair<string, JsonValue?>("1", new JsonNumber((decimal) 0.5)),
+                        new KeyValuePair<string, JsonValue?>("2", new JsonNumber((decimal) -1.0E6))
                     ),
                     JsonParser.ParseOnce("{\"1\": 0.5, \"2\": -1.0E6}")
                 );
@@ -166,8 +166,8 @@ namespace qpwakaba.Tests
                 (
                     new JsonObject
                     (
-                        new KeyValuePair<string, IJsonValue>("1", new JsonNumber((float) 0.5)),
-                        new KeyValuePair<string, IJsonValue>("2", new JsonNumber((float) -1.0E6))
+                        new KeyValuePair<string, JsonValue?>("1", new JsonNumber((float) 0.5)),
+                        new KeyValuePair<string, JsonValue?>("2", new JsonNumber((float) -1.0E6))
                     ),
                     JsonParser.ParseOnce("{\"1\": 0.5, \"2\": -1.0E6}")
                 );
@@ -184,7 +184,7 @@ namespace qpwakaba.Tests
             );
             Assert.AreEqual
             (
-               new JsonArray((IJsonValue) new JsonArray()),
+               new JsonArray((JsonValue) new JsonArray()),
                 JsonParser.ParseOnce("[[]]")
             );
             Assert.AreEqual
@@ -200,11 +200,11 @@ namespace qpwakaba.Tests
             Assert.AreEqual(
                 new JsonObject
                 (
-                    new KeyValuePair<string, IJsonValue>
+                    new KeyValuePair<string, JsonValue?>
                     (
                         "key1", new JsonObject
                         (
-                            new KeyValuePair<string, IJsonValue>("key", new JsonString("name"))
+                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name"))
                         )
                     )
                 ),
@@ -213,18 +213,18 @@ namespace qpwakaba.Tests
             Assert.AreEqual(
                 new JsonObject
                 (
-                    new KeyValuePair<string, IJsonValue>
+                    new KeyValuePair<string, JsonValue?>
                     (
                         "key1", new JsonObject
                         (
-                            new KeyValuePair<string, IJsonValue>("key", new JsonString("name"))
+                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name"))
                         )
                     ),
-                    new KeyValuePair<string, IJsonValue>
+                    new KeyValuePair<string, JsonValue?>
                     (
                         "key2", new JsonObject
                         (
-                            new KeyValuePair<string, IJsonValue>("key", new JsonString("name"))
+                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name"))
                         )
                     )
                 ),
@@ -233,18 +233,18 @@ namespace qpwakaba.Tests
             Assert.AreEqual(
                 new JsonObject
                 (
-                    new KeyValuePair<string, IJsonValue>
+                    new KeyValuePair<string, JsonValue?>
                     (
                         "key1", new JsonObject
                         (
-                            new KeyValuePair<string, IJsonValue>("key", new JsonString("name"))
+                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name"))
                         )
                     ),
-                    new KeyValuePair<string, IJsonValue>
+                    new KeyValuePair<string, JsonValue?>
                     (
                         "key1", new JsonObject
                         (
-                            new KeyValuePair<string, IJsonValue>("key", new JsonString("name"))
+                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name"))
                         )
                     )
                 ),
@@ -253,14 +253,14 @@ namespace qpwakaba.Tests
             Assert.AreEqual(
                 new JsonObject
                 (
-                    new KeyValuePair<string, IJsonValue>
+                    new KeyValuePair<string, JsonValue?>
                     (
                         "key1", new JsonArray
                         (
                             new JsonArray(),
                             new JsonObject
                             (
-                                new KeyValuePair<string, IJsonValue>("key2", new JsonNull())
+                                new KeyValuePair<string, JsonValue?>("key2", null)
                             )
                         )
                     )
@@ -272,109 +272,89 @@ namespace qpwakaba.Tests
             #region parse an array which has only 0
             Assert.AreEqual(
                 (int) 0,
-                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().IntegerValue
+                JsonParser.DynamicOnce("[0]")?[0].IntegerValue
             );
             Assert.AreEqual(
                 (long) 0,
-                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().LongValue
+                JsonParser.DynamicOnce("[0]")?[0].LongValue
             );
             Assert.AreEqual(
                 (uint) 0,
-                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().UIntValue
+                JsonParser.DynamicOnce("[0]")?[0].UIntValue
             );
             Assert.AreEqual(
                 (ulong) 0,
-                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().ULongValue
+                JsonParser.DynamicOnce("[0]")?[0].ULongValue
             );
             Assert.AreEqual(
                 (float) 0,
-                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().FloatValue
+                JsonParser.DynamicOnce("[0]")?[0].FloatValue
             );
             Assert.AreEqual(
                 (double) 0,
-                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DoubleValue
+                JsonParser.DynamicOnce("[0]")?[0].DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 0,
-                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DecimalValue
+                JsonParser.DynamicOnce("[0]")?[0].DecimalValue
             );
             #endregion
             #region parse an array which has only 0.5
             Assert.AreEqual(
                 (float) 0.5,
-                (JsonParser.ParseOnce("[0.5]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().FloatValue
+                JsonParser.DynamicOnce("[0.5]")?[0].FloatValue
             );
             Assert.AreEqual(
                 (double) 0.5,
-                (JsonParser.ParseOnce("[0.5]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DoubleValue
+                JsonParser.DynamicOnce("[0.5]")?[0].DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 0.5,
-                (JsonParser.ParseOnce("[0.5]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DecimalValue
+                JsonParser.DynamicOnce("[0.5]")?[0].DecimalValue
             );
             #endregion
             #region parse an array which has only 5E-3
             Assert.AreEqual(
                 (float) 0.005,
-                (JsonParser.ParseOnce("[5E-3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().FloatValue
+                JsonParser.DynamicOnce("[5E-3]")?[0].FloatValue
             );
             Assert.AreEqual(
                 (double) 0.005,
-                (JsonParser.ParseOnce("[5E-3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DoubleValue
+                JsonParser.DynamicOnce("[5E-3]")?[0].DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 0.005,
-                (JsonParser.ParseOnce("[5E-3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DecimalValue
+                JsonParser.DynamicOnce("[5E-3]")?[0].DecimalValue
             );
             #endregion
             #region parse an array which has only 5E+3
             Assert.AreEqual(
                 (int) 5000,
-                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().IntegerValue
+                JsonParser.DynamicOnce("[5E+3]")?[0].IntegerValue
             );
             Assert.AreEqual(
                 (long) 5000,
-                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().LongValue
+                JsonParser.DynamicOnce("[5E+3]")?[0].LongValue
             );
             Assert.AreEqual(
                 (uint) 5000,
-                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().UIntValue
+                JsonParser.DynamicOnce("[5E+3]")?[0].UIntValue
             );
             Assert.AreEqual(
                 (ulong) 5000,
-                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().ULongValue
+                JsonParser.DynamicOnce("[5E+3]")?[0].ULongValue
             );
             Assert.AreEqual(
                 (float) 5000,
-                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().FloatValue
+                JsonParser.DynamicOnce("[5E+3]")?[0].FloatValue
             );
             Assert.AreEqual(
                 (double) 5000,
-                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DoubleValue
+                JsonParser.DynamicOnce("[5E+3]")?[0].DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 5000,
-                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
-                    .Cast<JsonNumber>().DecimalValue
+                JsonParser.DynamicOnce("[5E+3]")?[0].DecimalValue
             );
             #endregion
             #endregion
@@ -391,9 +371,9 @@ namespace qpwakaba.Tests
             );
         }
 
-        private static IEnumerable<IJsonValue> ParseTestCases()
+        private static IEnumerable<JsonValue?> ParseTestCases()
         {
-            yield return new JsonNull();
+            yield return null;
             yield return new JsonBoolean(true);
             yield return new JsonBoolean(false);
             yield return new JsonString("");
@@ -410,7 +390,7 @@ namespace qpwakaba.Tests
             yield return new JsonArray(new JsonBoolean(true), new JsonBoolean(false));
             yield return (
                 new JsonArray(
-                    (IJsonValue) new JsonArray(
+                    (JsonValue) new JsonArray(
                         new JsonBoolean(true)
                     )
                 )
@@ -440,33 +420,33 @@ namespace qpwakaba.Tests
             yield return new JsonObject();
             yield return (
                 new JsonObject(
-                    new KeyValuePair<string, IJsonValue>("key1", new JsonString("value1"))
+                    new KeyValuePair<string, JsonValue?>("key1", new JsonString("value1"))
                 )
             );
             yield return (
                 new JsonObject(
-                    new KeyValuePair<string, IJsonValue>("key1", new JsonString("value1")),
-                    new KeyValuePair<string, IJsonValue>("key2", new JsonString("value2"))
+                    new KeyValuePair<string, JsonValue?>("key1", new JsonString("value1")),
+                    new KeyValuePair<string, JsonValue?>("key2", new JsonString("value2"))
                 )
             );
             yield return (
                 new JsonObject(
-                    new KeyValuePair<string, IJsonValue>("key1", new JsonString("value1")),
-                    new KeyValuePair<string, IJsonValue>("key2",
+                    new KeyValuePair<string, JsonValue?>("key1", new JsonString("value1")),
+                    new KeyValuePair<string, JsonValue?>("key2",
                         new JsonObject(
-                            new KeyValuePair<string, IJsonValue>("key2.key1", new JsonString("value2")),
-                            new KeyValuePair<string, IJsonValue>("key2.key2", new JsonString("value3"))
+                            new KeyValuePair<string, JsonValue?>("key2.key1", new JsonString("value2")),
+                            new KeyValuePair<string, JsonValue?>("key2.key2", new JsonString("value3"))
                         )
                     )
                 )
             );
-            yield return JsonParser.ParseOnce("[{}]");
-            yield return JsonParser.ParseOnce("[[]]");
-            yield return JsonParser.ParseOnce("[{}, {}]");
-            yield return JsonParser.ParseOnce("[[], {}]");
-            yield return JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key2\": {\"key\": \"name\"}}");
-            yield return JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key1\": {\"key\": \"name\"}}");
-            yield return JsonParser.ParseOnce("{\"key1\": [[], {\"key2\": null}]}");
+            yield return JsonParser.ParseOnce("[{}]")!;
+            yield return JsonParser.ParseOnce("[[]]")!;
+            yield return JsonParser.ParseOnce("[{}, {}]")!;
+            yield return JsonParser.ParseOnce("[[], {}]")!;
+            yield return JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key2\": {\"key\": \"name\"}}")!;
+            yield return JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key1\": {\"key\": \"name\"}}")!;
+            yield return JsonParser.ParseOnce("{\"key1\": [[], {\"key2\": null}]}")!;
         }
 
         [TestMethod]
@@ -480,11 +460,11 @@ namespace qpwakaba.Tests
                 );
                 Assert.AreEqual(
                     value,
-                    value.DeepCopy()
+                    value?.DeepCopy()
                 );
                 Assert.AreEqual(
                     value,
-                    value.DeepCopy().DeepCopy()
+                    value?.DeepCopy().DeepCopy()
                 );
             }
         }
@@ -494,16 +474,7 @@ namespace qpwakaba.Tests
         {
             foreach (var value in ParseTestCases())
             {
-                // continue if invalid JSON which has illegal top-level object type
-                switch (value.Type)
-                {
-                    case JsonValueType.Array:
-                    case JsonValueType.Object:
-                        break;
-                    default:
-                        continue;
-                }
-                Assert.AreEqual(value, JsonParser.ParseOnce(value.ToJsonCompatibleString()));
+                Assert.AreEqual(value, JsonParser.ParseOnce(value?.ToJsonCompatibleString() ?? "null"));
             }
         }
 

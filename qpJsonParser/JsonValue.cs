@@ -1,10 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using qpwakaba.Utils;
 
@@ -23,13 +26,158 @@ namespace qpwakaba
     {
         T DeepCopy();
     }
-    public interface IJsonValue : IDeepCopy<IJsonValue>
+    public abstract class JsonValue : DynamicObject, IDeepCopy<JsonValue>
     {
-        JsonValueType Type { get; }
-        string ToString();
-        string ToJsonCompatibleString(bool escapeUnicodeCharacter = false);
+        public abstract JsonValueType Type { get; }
+        public abstract override string ToString();
+        public abstract string ToJsonCompatibleString(bool escapeUnicodeCharacter = false);
+        public abstract JsonValue DeepCopy();
+
+        internal static bool TryToJsonValue(Array arr, [NotNullWhen(true)] out JsonArray? ja)
+        {
+            JsonValue[] buf = new JsonValue[arr.Length];
+            int i = 0;
+            foreach (var e in arr)
+            {
+                if (!TryToJsonValue(e, out buf[i++]!))
+                {
+                    ja = default;
+                    return false;
+                }
+            }
+            ja = new JsonArray(buf);
+            return true;
+        }
+        internal static bool TryToJsonValue(IList arr, [NotNullWhen(true)] out JsonArray? ja)
+        {
+            JsonValue[] buf = new JsonValue[arr.Count];
+            int i = 0;
+            foreach (var e in arr)
+            {
+                if (!TryToJsonValue(e, out buf[i++]!))
+                {
+                    ja = default;
+                    return false;
+                }
+            }
+            ja = new JsonArray(buf);
+            return true;
+        }
+        internal static bool TryToJsonValue(IEnumerable enumerable, [NotNullWhen(true)] out JsonArray? ja)
+        {
+            ja = new();
+            foreach (var e in enumerable)
+            {
+                if (!TryToJsonValue(e, out JsonValue? jv))
+                    return false;
+                ja.Add(jv);
+            }
+            return true;
+        }
+        internal static bool TryToJsonValue(object obj, [NotNullWhen(true)] out JsonObject? jo)
+        {
+            const BindingFlags flag = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+            var fields = obj.GetType().GetFields(flag);
+            var props = obj.GetType().GetProperties(flag);
+
+            var backings = new HashSet<string>();
+
+            jo = new();
+            foreach (var prop in props)
+            {
+                if (prop.GetCustomAttribute<NonSerializedAttribute>() is not null)
+                    continue;
+                if (!TryToJsonValue(prop.GetValue(obj), out JsonValue? jv))
+                    return false;
+                jo.Add(prop.Name, jv);
+            }
+            foreach (var field in fields)
+            {
+                if (field.GetCustomAttribute<NonSerializedAttribute>() is not null)
+                    continue;
+                if (field.GetCustomAttribute<CompilerGeneratedAttribute>() is not null)
+                    continue;
+                if (!TryToJsonValue(field.GetValue(obj), out JsonValue? jv))
+                    return false;
+                jo.Add(field.Name, jv);
+            }
+            return true;
+        }
+        internal static bool TryToJsonValue(IDictionary dic, [NotNullWhen(true)] out JsonObject? jo)
+        {
+            var enumerator = dic.GetEnumerator();
+            jo = new();
+            while (enumerator.MoveNext())
+            {
+                if (!TryToJsonValue(enumerator.Value, out JsonValue? jv))
+                    return false;
+                switch (enumerator.Key)
+                {
+                    case string s:
+                        jo.Add(s, jv);
+                        continue;
+                    case JsonString js:
+                        jo.Add(js.Value, jv);
+                        continue;
+                    default:
+                        return false;
+                }
+            }
+            return true;
+        }
+        internal static bool TryToJsonValue(object? obj, out JsonValue? value)
+        {
+            switch (obj)
+            {
+                case JsonValue jv:
+                    value = jv;
+                    return true;
+                case string str:
+                    value = new JsonString(str);
+                    return true;
+                case int i:
+                    value = new JsonNumber(i);
+                    return true;
+                case float f:
+                    value = new JsonNumber(f);
+                    return true;
+                case double d:
+                    value = new JsonNumber(d);
+                    return true;
+                case null:
+                    value = null;
+                    return true;
+                case long l:
+                    value = new JsonNumber(l);
+                    return true;
+                case decimal d:
+                    value = new JsonNumber(d);
+                    return true;
+                case Array arr:
+                {
+                    bool result = TryToJsonValue(arr, out JsonArray? ja);
+                    value = ja;
+                    return result;
+                }
+                case IList lst:
+                {
+                    bool result = TryToJsonValue(lst, out JsonArray? ja);
+                    value = ja;
+                    return result;
+                }
+                case bool b:
+                    value = new JsonBoolean(b);
+                    return true;
+                default:
+                {
+                    bool result = TryToJsonValue(obj, out JsonObject? jo);
+                    value = jo;
+                    return result;
+                }
+            }
+        }
     }
-    public class JsonBoolean : IJsonValue, IComparable, IComparable<bool>, IComparable<JsonBoolean>,
+    public class JsonBoolean : JsonValue, IComparable, IComparable<bool>, IComparable<JsonBoolean>,
         IConvertible, IEquatable<bool>, IEquatable<JsonBoolean>
     {
         public bool Value { get; }
@@ -37,7 +185,7 @@ namespace qpwakaba
         public JsonBoolean(bool boolean) => this.Value = boolean;
         #endregion
         #region Equals
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is null)
                 return false;
@@ -51,57 +199,37 @@ namespace qpwakaba
         #endregion
 
         public override string ToString() => this.Value ? jsonTrue : jsonFalse;
-        public string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
+        public override string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
             => ToString();
 
         #region implementation of interfaces
-        JsonValueType IJsonValue.Type => JsonValueType.Literal;
-        public int CompareTo(object obj) => this.Value.CompareTo(obj);
+        public override JsonValueType Type => JsonValueType.Literal;
+        public int CompareTo(object? obj) => this.Value.CompareTo(obj);
         public int CompareTo(bool other) => this.Value.CompareTo(other);
         TypeCode IConvertible.GetTypeCode() => TypeCode.Boolean;
-        bool IConvertible.ToBoolean(IFormatProvider provider) => ((IConvertible) this.Value).ToBoolean(provider);
-        byte IConvertible.ToByte(IFormatProvider provider) => ((IConvertible) this.Value).ToByte(provider);
-        char IConvertible.ToChar(IFormatProvider provider) => ((IConvertible) this.Value).ToChar(provider);
-        DateTime IConvertible.ToDateTime(IFormatProvider provider) => ((IConvertible) this.Value).ToDateTime(provider);
-        decimal IConvertible.ToDecimal(IFormatProvider provider) => ((IConvertible) this.Value).ToDecimal(provider);
-        double IConvertible.ToDouble(IFormatProvider provider) => ((IConvertible) this.Value).ToDouble(provider);
-        short IConvertible.ToInt16(IFormatProvider provider) => ((IConvertible) this.Value).ToInt16(provider);
-        int IConvertible.ToInt32(IFormatProvider provider) => ((IConvertible) this.Value).ToInt32(provider);
-        long IConvertible.ToInt64(IFormatProvider provider) => ((IConvertible) this.Value).ToInt64(provider);
-        sbyte IConvertible.ToSByte(IFormatProvider provider) => ((IConvertible) this.Value).ToSByte(provider);
-        float IConvertible.ToSingle(IFormatProvider provider) => ((IConvertible) this.Value).ToSingle(provider);
-        string IConvertible.ToString(IFormatProvider provider) => this.Value.ToString(provider);
-        object IConvertible.ToType(Type conversionType, IFormatProvider provider) => ((IConvertible) this.Value).ToType(conversionType, provider);
-        ushort IConvertible.ToUInt16(IFormatProvider provider) => ((IConvertible) this.Value).ToUInt16(provider);
-        uint IConvertible.ToUInt32(IFormatProvider provider) => ((IConvertible) this.Value).ToUInt32(provider);
-        ulong IConvertible.ToUInt64(IFormatProvider provider) => ((IConvertible) this.Value).ToUInt64(provider);
+        bool IConvertible.ToBoolean(IFormatProvider? provider) => ((IConvertible) this.Value).ToBoolean(provider);
+        byte IConvertible.ToByte(IFormatProvider? provider) => ((IConvertible) this.Value).ToByte(provider);
+        char IConvertible.ToChar(IFormatProvider? provider) => ((IConvertible) this.Value).ToChar(provider);
+        DateTime IConvertible.ToDateTime(IFormatProvider? provider) => ((IConvertible) this.Value).ToDateTime(provider);
+        decimal IConvertible.ToDecimal(IFormatProvider? provider) => ((IConvertible) this.Value).ToDecimal(provider);
+        double IConvertible.ToDouble(IFormatProvider? provider) => ((IConvertible) this.Value).ToDouble(provider);
+        short IConvertible.ToInt16(IFormatProvider? provider) => ((IConvertible) this.Value).ToInt16(provider);
+        int IConvertible.ToInt32(IFormatProvider? provider) => ((IConvertible) this.Value).ToInt32(provider);
+        long IConvertible.ToInt64(IFormatProvider? provider) => ((IConvertible) this.Value).ToInt64(provider);
+        sbyte IConvertible.ToSByte(IFormatProvider? provider) => ((IConvertible) this.Value).ToSByte(provider);
+        float IConvertible.ToSingle(IFormatProvider? provider) => ((IConvertible) this.Value).ToSingle(provider);
+        string IConvertible.ToString(IFormatProvider? provider) => this.Value.ToString(provider);
+        object IConvertible.ToType(Type conversionType, IFormatProvider? provider) => ((IConvertible) this.Value).ToType(conversionType, provider);
+        ushort IConvertible.ToUInt16(IFormatProvider? provider) => ((IConvertible) this.Value).ToUInt16(provider);
+        uint IConvertible.ToUInt32(IFormatProvider? provider) => ((IConvertible) this.Value).ToUInt32(provider);
+        ulong IConvertible.ToUInt64(IFormatProvider? provider) => ((IConvertible) this.Value).ToUInt64(provider);
         public bool Equals(bool other) => this.Value.Equals(other);
-        public bool Equals(JsonBoolean other) => Equals(other.Value);
-        public int CompareTo(JsonBoolean other) => CompareTo(other.Value);
-        public IJsonValue DeepCopy() => new JsonBoolean(this.Value);
+        public bool Equals(JsonBoolean? other) => other is not null ? Equals(other.Value) : false;
+        public int CompareTo(JsonBoolean? other) => other is not null ?CompareTo(other.Value) : 1;
+        public override JsonValue DeepCopy() => new JsonBoolean(this.Value);
         #endregion
     }
-    public class JsonNull : IJsonValue
-    {
-        public JsonValueType Type => JsonValueType.Literal;
-        public JsonNull() { }
-        #region Equals
-        public override bool Equals(object obj)
-        {
-            if (obj is null)
-                return false;
-            return obj.GetType() == this.GetType();
-        }
-        public override int GetHashCode() => -1;
-        #endregion
-
-        public override string ToString() => jsonNull;
-        public string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
-            => ToString();
-
-        IJsonValue IDeepCopy<IJsonValue>.DeepCopy() => new JsonNull();
-    }
-    public class JsonNumber : IJsonValue, IComparable, IComparable<int>, IComparable<long>, IComparable<uint>,
+    public class JsonNumber : JsonValue, IComparable, IComparable<int>, IComparable<long>, IComparable<uint>,
         IComparable<ulong>, IComparable<float>, IComparable<double>, IComparable<decimal>, IComparable<JsonNumber>,
         IEquatable<int>, IEquatable<long>, IEquatable<uint>, IEquatable<ulong>, IEquatable<float>,
         IEquatable<double>, IEquatable<decimal>, IEquatable<JsonNumber>, IFormattable, IConvertible
@@ -113,13 +241,45 @@ namespace qpwakaba
                 throw new ArgumentException($"{value} is not a valid number.");
             this.StringValue = value;
         }
-        public JsonNumber(float value) => this.FloatValue = value;
-        public JsonNumber(double value) => this.DoubleValue = value;
-        public JsonNumber(int value) => this.IntegerValue = value;
-        public JsonNumber(long value) => this.LongValue = value;
-        public JsonNumber(uint value) => this.UIntValue = value;
-        public JsonNumber(ulong value) => this.ULongValue = value;
-        public JsonNumber(decimal value) => this.DecimalValue = value;
+        public JsonNumber(float value)
+        {
+            this.FloatValue = value;
+            this.StringValue = value.ToString("r");
+        }
+
+        public JsonNumber(double value)
+        {
+            this.DoubleValue = value;
+            this.StringValue = value.ToString("r");
+        }
+
+        public JsonNumber(int value)
+        {
+            this.IntegerValue = value;
+            this.StringValue = value.ToString();
+        }
+
+        public JsonNumber(long value)
+        {
+            this.LongValue = value;
+            this.StringValue = value.ToString();
+        }
+
+        public JsonNumber(uint value)
+        {
+            this.UIntValue = value;
+            this.StringValue = value.ToString();
+        }
+        public JsonNumber(ulong value)
+        {
+            this.ULongValue = value;
+            this.StringValue = value.ToString();
+        }
+        public JsonNumber(decimal value)
+        {
+            this.DecimalValue = value;
+            this.StringValue = value.ToString();
+        }
         #endregion
 
         public virtual float FloatValue
@@ -243,11 +403,11 @@ namespace qpwakaba
         }
         public string StringValue { get; set; }
         public override string ToString() => this.StringValue;
-        public string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
+        public override string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
             => ToString();
 
         #region Equals
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is null)
                 return false;
@@ -258,7 +418,7 @@ namespace qpwakaba
 
             return this.Equals(other);
         }
-        public bool Equals(JsonNumber other) => Equals(this.StringValue, other.StringValue);
+        public bool Equals(JsonNumber? other) => other is not null && Equals(this.StringValue, other.StringValue);
         internal static bool Equals(string number1, string number2)
         {
             string[] split1 = number1.ToLower().Split(jsonExpSmall);
@@ -454,8 +614,8 @@ namespace qpwakaba
         #endregion
 
         #region implementation of interfaces
-        JsonValueType IJsonValue.Type => JsonValueType.Number;
-        public int CompareTo(object obj) => this.DecimalValue.CompareTo(obj);
+        public override JsonValueType Type => JsonValueType.Number;
+        public int CompareTo(object? obj) => this.DecimalValue.CompareTo(obj);
         public int CompareTo(int other) => this.IntegerValue.CompareTo(other);
         public int CompareTo(long other) => this.LongValue.CompareTo(other);
         public int CompareTo(float other) => this.FloatValue.CompareTo(other);
@@ -463,24 +623,24 @@ namespace qpwakaba
         public int CompareTo(uint other) => this.UIntValue.CompareTo(other);
         public int CompareTo(ulong other) => this.ULongValue.CompareTo(other);
         public int CompareTo(decimal other) => this.DecimalValue.CompareTo(other);
-        public string ToString(string format, IFormatProvider formatProvider) => this.DecimalValue.ToString(format, formatProvider);
+        public string ToString(string? format, IFormatProvider? formatProvider) => this.DecimalValue.ToString(format, formatProvider);
         public TypeCode GetTypeCode() => TypeCode.Object;
-        bool IConvertible.ToBoolean(IFormatProvider provider) => ((IConvertible) this.StringValue).ToBoolean(provider);
-        byte IConvertible.ToByte(IFormatProvider provider) => ((IConvertible) this.StringValue).ToByte(provider);
-        char IConvertible.ToChar(IFormatProvider provider) => ((IConvertible) this.StringValue).ToChar(provider);
-        DateTime IConvertible.ToDateTime(IFormatProvider provider) => ((IConvertible) this.StringValue).ToDateTime(provider);
-        decimal IConvertible.ToDecimal(IFormatProvider provider) => this.DecimalValue;
-        double IConvertible.ToDouble(IFormatProvider provider) => this.DoubleValue;
-        short IConvertible.ToInt16(IFormatProvider provider) => (short) this.IntegerValue;
-        int IConvertible.ToInt32(IFormatProvider provider) => this.IntegerValue;
-        long IConvertible.ToInt64(IFormatProvider provider) => this.LongValue;
-        sbyte IConvertible.ToSByte(IFormatProvider provider) => (sbyte) this.IntegerValue;
-        float IConvertible.ToSingle(IFormatProvider provider) => this.FloatValue;
-        string IConvertible.ToString(IFormatProvider provider) => this.StringValue.ToString(provider);
-        object IConvertible.ToType(Type conversionType, IFormatProvider provider) => ((IConvertible) this.StringValue).ToType(conversionType, provider);
-        ushort IConvertible.ToUInt16(IFormatProvider provider) => ((IConvertible) this.StringValue).ToUInt16(provider);
-        uint IConvertible.ToUInt32(IFormatProvider provider) => ((IConvertible) this.StringValue).ToUInt32(provider);
-        ulong IConvertible.ToUInt64(IFormatProvider provider) => ((IConvertible) this.StringValue).ToUInt64(provider);
+        bool IConvertible.ToBoolean(IFormatProvider? provider) => ((IConvertible) this.StringValue).ToBoolean(provider);
+        byte IConvertible.ToByte(IFormatProvider? provider) => ((IConvertible) this.StringValue).ToByte(provider);
+        char IConvertible.ToChar(IFormatProvider? provider) => ((IConvertible) this.StringValue).ToChar(provider);
+        DateTime IConvertible.ToDateTime(IFormatProvider? provider) => ((IConvertible) this.StringValue).ToDateTime(provider);
+        decimal IConvertible.ToDecimal(IFormatProvider? provider) => this.DecimalValue;
+        double IConvertible.ToDouble(IFormatProvider? provider) => this.DoubleValue;
+        short IConvertible.ToInt16(IFormatProvider? provider) => (short) this.IntegerValue;
+        int IConvertible.ToInt32(IFormatProvider? provider) => this.IntegerValue;
+        long IConvertible.ToInt64(IFormatProvider? provider) => this.LongValue;
+        sbyte IConvertible.ToSByte(IFormatProvider? provider) => (sbyte) this.IntegerValue;
+        float IConvertible.ToSingle(IFormatProvider? provider) => this.FloatValue;
+        string IConvertible.ToString(IFormatProvider? provider) => this.StringValue.ToString(provider);
+        object IConvertible.ToType(Type conversionType, IFormatProvider? provider) => ((IConvertible) this.StringValue).ToType(conversionType, provider);
+        ushort IConvertible.ToUInt16(IFormatProvider? provider) => ((IConvertible) this.StringValue).ToUInt16(provider);
+        uint IConvertible.ToUInt32(IFormatProvider? provider) => ((IConvertible) this.StringValue).ToUInt32(provider);
+        ulong IConvertible.ToUInt64(IFormatProvider? provider) => ((IConvertible) this.StringValue).ToUInt64(provider);
         public bool Equals(int other) => this.IntegerValue.Equals(other);
         public bool Equals(long other) => this.LongValue.Equals(other);
         public bool Equals(uint other) => this.UIntValue.Equals(other);
@@ -488,11 +648,11 @@ namespace qpwakaba
         public bool Equals(float other) => this.FloatValue.Equals(other);
         public bool Equals(double other) => this.DoubleValue.Equals(other);
         public bool Equals(decimal other) => this.DecimalValue.Equals(other);
-        public int CompareTo(JsonNumber other) => this.CompareTo(other.DecimalValue);
-        IJsonValue IDeepCopy<IJsonValue>.DeepCopy() => new JsonNumber(this.StringValue);
+        public int CompareTo(JsonNumber? other) => other is not null ? this.CompareTo(other.DecimalValue) : 1;
+        public override JsonValue DeepCopy() => new JsonNumber(this.StringValue);
         #endregion
     }
-    public class JsonString : IJsonValue, IComparable, IConvertible, IEnumerable,
+    public class JsonString : JsonValue, IComparable, IConvertible, IEnumerable,
         IComparable<string>, IComparable<JsonString>, IEquatable<string>, IEquatable<JsonString>, IEnumerable<char>
     {
         public string Value { get; set; }
@@ -501,7 +661,7 @@ namespace qpwakaba
         public JsonString(JsonString jsonString) => this.Value = jsonString.Value;
         #endregion
         public override string ToString() => this.Value;
-        public string ToJsonCompatibleString(bool escapeUnicodeString = false)
+        public override string ToJsonCompatibleString(bool escapeUnicodeString = false)
         {
             var builder = new StringBuilder();
             foreach (var c in this.Value)
@@ -548,7 +708,7 @@ namespace qpwakaba
         }
 
         #region Equals
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is null)
                 return false;
@@ -562,45 +722,45 @@ namespace qpwakaba
         #endregion
 
         #region implementation of interfaces
-        JsonValueType IJsonValue.Type => JsonValueType.String;
-        public int CompareTo(object obj) => this.Value.CompareTo(obj);
+        public override JsonValueType Type => JsonValueType.String;
+        public int CompareTo(object? obj) => this.Value.CompareTo(obj);
         public object Clone() => new JsonString(this.Value);
         TypeCode IConvertible.GetTypeCode() => this.Value.GetTypeCode();
-        bool IConvertible.ToBoolean(IFormatProvider provider) => ((IConvertible) this.Value).ToBoolean(provider);
-        byte IConvertible.ToByte(IFormatProvider provider) => ((IConvertible) this.Value).ToByte(provider);
-        char IConvertible.ToChar(IFormatProvider provider) => ((IConvertible) this.Value).ToChar(provider);
-        DateTime IConvertible.ToDateTime(IFormatProvider provider) => ((IConvertible) this.Value).ToDateTime(provider);
-        decimal IConvertible.ToDecimal(IFormatProvider provider) => ((IConvertible) this.Value).ToDecimal(provider);
-        double IConvertible.ToDouble(IFormatProvider provider) => ((IConvertible) this.Value).ToDouble(provider);
-        short IConvertible.ToInt16(IFormatProvider provider) => ((IConvertible) this.Value).ToInt16(provider);
-        int IConvertible.ToInt32(IFormatProvider provider) => ((IConvertible) this.Value).ToInt32(provider);
-        long IConvertible.ToInt64(IFormatProvider provider) => ((IConvertible) this.Value).ToInt64(provider);
-        sbyte IConvertible.ToSByte(IFormatProvider provider) => ((IConvertible) this.Value).ToSByte(provider);
-        float IConvertible.ToSingle(IFormatProvider provider) => ((IConvertible) this.Value).ToSingle(provider);
-        string IConvertible.ToString(IFormatProvider provider) => this.Value;
-        object IConvertible.ToType(Type conversionType, IFormatProvider provider) => ((IConvertible) this.Value).ToType(conversionType, provider);
-        ushort IConvertible.ToUInt16(IFormatProvider provider) => ((IConvertible) this.Value).ToUInt16(provider);
-        uint IConvertible.ToUInt32(IFormatProvider provider) => ((IConvertible) this.Value).ToUInt32(provider);
-        ulong IConvertible.ToUInt64(IFormatProvider provider) => ((IConvertible) this.Value).ToUInt64(provider);
+        bool IConvertible.ToBoolean(IFormatProvider? provider) => ((IConvertible) this.Value).ToBoolean(provider);
+        byte IConvertible.ToByte(IFormatProvider? provider) => ((IConvertible) this.Value).ToByte(provider);
+        char IConvertible.ToChar(IFormatProvider? provider) => ((IConvertible) this.Value).ToChar(provider);
+        DateTime IConvertible.ToDateTime(IFormatProvider? provider) => ((IConvertible) this.Value).ToDateTime(provider);
+        decimal IConvertible.ToDecimal(IFormatProvider? provider) => ((IConvertible) this.Value).ToDecimal(provider);
+        double IConvertible.ToDouble(IFormatProvider? provider) => ((IConvertible) this.Value).ToDouble(provider);
+        short IConvertible.ToInt16(IFormatProvider? provider) => ((IConvertible) this.Value).ToInt16(provider);
+        int IConvertible.ToInt32(IFormatProvider? provider) => ((IConvertible) this.Value).ToInt32(provider);
+        long IConvertible.ToInt64(IFormatProvider? provider) => ((IConvertible) this.Value).ToInt64(provider);
+        sbyte IConvertible.ToSByte(IFormatProvider? provider) => ((IConvertible) this.Value).ToSByte(provider);
+        float IConvertible.ToSingle(IFormatProvider? provider) => ((IConvertible) this.Value).ToSingle(provider);
+        string IConvertible.ToString(IFormatProvider? provider) => this.Value;
+        object IConvertible.ToType(Type conversionType, IFormatProvider? provider) => ((IConvertible) this.Value).ToType(conversionType, provider);
+        ushort IConvertible.ToUInt16(IFormatProvider? provider) => ((IConvertible) this.Value).ToUInt16(provider);
+        uint IConvertible.ToUInt32(IFormatProvider? provider) => ((IConvertible) this.Value).ToUInt32(provider);
+        ulong IConvertible.ToUInt64(IFormatProvider? provider) => ((IConvertible) this.Value).ToUInt64(provider);
         public IEnumerator GetEnumerator() => ((IEnumerable) this.Value).GetEnumerator();
-        public int CompareTo(string other) => this.Value.CompareTo(other);
-        public bool Equals(string other) => this.Value.Equals(other);
+        public int CompareTo(string? other) => this.Value.CompareTo(other);
+        public bool Equals(string? other) => this.Value.Equals(other);
         IEnumerator<char> IEnumerable<char>.GetEnumerator() => ((IEnumerable<char>) this.Value).GetEnumerator();
-        public int CompareTo(JsonString other) => this.CompareTo(other.Value);
-        public bool Equals(JsonString other) => this.Equals(other.Value);
-        IJsonValue IDeepCopy<IJsonValue>.DeepCopy() => new JsonString(this);
+        public int CompareTo(JsonString? other) => other is not null ? this.CompareTo(other.Value) : 1;
+        public bool Equals(JsonString? other) => other is not null && this.Equals(other.Value);
+        public override JsonValue DeepCopy() => new JsonString(this);
         #endregion
 
         #region Parse
         public static JsonString Parse(string escapedString)
         {
-            if (TryParse(escapedString, out JsonString result))
+            if (TryParse(escapedString, out JsonString? result))
             {
                 return result;
             }
             throw new InvalidDataException();
         }
-        public static bool TryParse(string escapedString, out JsonString jsonString)
+        public static bool TryParse(string escapedString, [NotNullWhen(true)] out JsonString? jsonString)
         {
             var builder = new StringBuilder(escapedString.Length);
             for (int i = 0; i < escapedString.Length; i++)
@@ -723,21 +883,25 @@ namespace qpwakaba
         }
         #endregion
     }
-    public class JsonObject : DynamicObject, IJsonValue, IDeepCopy<JsonObject>, IDictionary<string, IJsonValue>, IEnumerable<KeyValuePair<string, IJsonValue>>, IEnumerable
+    public class JsonObject : JsonValue, IDictionary<string, JsonValue?>, IEnumerable<KeyValuePair<string, JsonValue?>>, IEnumerable
     {
-        public IDictionary<string, IJsonValue> Parameters { get; }
-        public IJsonValue this[string key] { get => this.Parameters[key]; set => this.Parameters[key] = value; }
+        public IDictionary<string, JsonValue?> Parameters { get; }
+        public JsonValue? this[string key]
+        {
+            get => this.Parameters.ContainsKey(key) ? this.Parameters[key] : null;
+            set => this.Parameters[key] = value;
+        }
 
         #region constructors
-        public JsonObject(params KeyValuePair<string, IJsonValue>[] values)
+        public JsonObject(params KeyValuePair<string, JsonValue?>[] values)
             : this(values, false) { }
-        public JsonObject(bool keepOrder, params KeyValuePair<string, IJsonValue>[] values)
+        public JsonObject(bool keepOrder, params KeyValuePair<string, JsonValue?>[] values)
             : this(values, keepOrder) { }
         public JsonObject(bool keepOrder = false)
         {
-            this.Parameters = CreateDictionary<string, IJsonValue>(keepOrder);
+            this.Parameters = CreateDictionary<string, JsonValue?>(keepOrder);
         }
-        public JsonObject(IEnumerable<KeyValuePair<string, IJsonValue>> values, bool keepOrder = false)
+        public JsonObject(IEnumerable<KeyValuePair<string, JsonValue?>> values, bool keepOrder = false)
             : this(keepOrder)
         {
             foreach (var current in values)
@@ -746,17 +910,18 @@ namespace qpwakaba
                     this.Parameters.Add(current);
             }
         }
-        public JsonObject(IEnumerator<KeyValuePair<string, IJsonValue>> values, bool keepOrder = false)
+        public JsonObject(IEnumerator<KeyValuePair<string, JsonValue?>> values, bool keepOrder = false)
+            : this(keepOrder)
         {
         }
         #endregion
 
         #region ToString
         public override string ToString() => this.ToJsonCompatibleString(false);
-        public string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
+        public override string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
         {
             var builder = new StringBuilder();
-            IEnumerator<KeyValuePair<string, IJsonValue>> enumerator = this.Parameters.GetEnumerator();
+            IEnumerator<KeyValuePair<string, JsonValue?>> enumerator = this.Parameters.GetEnumerator();
             builder.Append(jsonBeginObject);
             if (enumerator.MoveNext())
             {
@@ -770,12 +935,12 @@ namespace qpwakaba
             return builder.ToString();
         }
 
-        private static string ToString(KeyValuePair<string, IJsonValue> pair, bool escapeUnicodeCharacter)
-            => $"{new JsonString(pair.Key).ToJsonCompatibleString(escapeUnicodeCharacter)}{jsonNameSeparator} {pair.Value.ToJsonCompatibleString(escapeUnicodeCharacter)}";
+        private static string ToString(KeyValuePair<string, JsonValue?> pair, bool escapeUnicodeCharacter)
+            => $"{new JsonString(pair.Key).ToJsonCompatibleString(escapeUnicodeCharacter)}{jsonNameSeparator} {pair.Value?.ToJsonCompatibleString(escapeUnicodeCharacter) ?? jsonNull}";
         #endregion
 
         #region Equals
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is null)
                 return false;
@@ -792,6 +957,10 @@ namespace qpwakaba
             {
                 var thisValue = enumerator.Current.Value;
                 var otherValue = other[enumerator.Current.Key];
+                if (thisValue is null && otherValue is null)
+                    continue;
+                if (thisValue is null || otherValue is null)
+                    return false;
                 if (!thisValue.Equals(otherValue))
                     return false;
             }
@@ -800,16 +969,16 @@ namespace qpwakaba
         public override int GetHashCode()
         {
             int hashCode = 17;
-            var sortedParameters = new List<KeyValuePair<string, IJsonValue>>(this.Parameters);
+            var sortedParameters = new List<KeyValuePair<string, JsonValue?>>(this.Parameters);
             sortedParameters.Sort(KeyComparator.Instance);
             foreach (var parameter in this.Parameters)
             {
-                hashCode = hashCode * 31 + (parameter.Key.GetHashCode() ^ parameter.Value.GetHashCode());
+                hashCode = hashCode * 31 + (parameter.Key.GetHashCode() ^ parameter.Value?.GetHashCode() ?? 0);
             }
             return hashCode;
         }
 
-        private class KeyComparator : IComparer<KeyValuePair<string, IJsonValue>>
+        private class KeyComparator : IComparer<KeyValuePair<string, JsonValue?>>
         {
             public static KeyComparator Instance { get; }
             static KeyComparator()
@@ -818,113 +987,120 @@ namespace qpwakaba
             }
             private KeyComparator() { }
 
-            public int Compare(KeyValuePair<string, IJsonValue> x, KeyValuePair<string, IJsonValue> y)
+            public int Compare(KeyValuePair<string, JsonValue?> x, KeyValuePair<string, JsonValue?> y)
                 => string.Compare(x.Key, y.Key);
         }
         #endregion
 
-        public JsonObject DeepCopy()
+        public override JsonValue DeepCopy()
         {
-            bool keepOrder = this.Parameters.GetType() == typeof(OrderedDictionary<string, IJsonValue>);
+            bool keepOrder = this.Parameters.GetType() == typeof(OrderedDictionary<string, JsonValue>);
             var instance = new JsonObject(this.Parameters, keepOrder);
             foreach (var parameter in this.Parameters)
-                instance.Parameters[parameter.Key] = parameter.Value.DeepCopy();
+                instance.Parameters[parameter.Key] = parameter.Value?.DeepCopy();
             return instance;
         }
 
         #region implementation of interfaces
-        JsonValueType IJsonValue.Type => JsonValueType.Object;
+        public override JsonValueType Type => JsonValueType.Object;
         public ICollection<string> Keys => this.Parameters.Keys;
-        public ICollection<IJsonValue> Values => this.Parameters.Values;
+        public ICollection<JsonValue?> Values => this.Parameters.Values;
         public int Count => this.Parameters.Count;
         public bool IsReadOnly => this.Parameters.IsReadOnly;
-        public IEnumerator<KeyValuePair<string, IJsonValue>> GetEnumerator() => this.Parameters.GetEnumerator();
+        public IEnumerator<KeyValuePair<string, JsonValue?>> GetEnumerator() => this.Parameters.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
-        public void Add(string key, IJsonValue value) => this.Parameters.Add(key, value);
+        public void Add(string key, JsonValue? value) => this.Parameters.Add(key, value);
         public bool ContainsKey(string key) => this.Parameters.ContainsKey(key);
         public bool Remove(string key) => this.Parameters.Remove(key);
-        public bool TryGetValue(string key, out IJsonValue value) => this.Parameters.TryGetValue(key, out value);
-        public void Add(KeyValuePair<string, IJsonValue> item) => this.Parameters.Add(item);
+        public bool TryGetValue(string key, out JsonValue? value) => this.Parameters.TryGetValue(key, out value);
+        public void Add(KeyValuePair<string, JsonValue?> item) => this.Parameters.Add(item);
         public void Clear() => this.Parameters.Clear();
-        public bool Contains(KeyValuePair<string, IJsonValue> item) => this.Parameters.Contains(item);
-        public void CopyTo(KeyValuePair<string, IJsonValue>[] array, int arrayIndex) => this.Parameters.CopyTo(array, arrayIndex);
-        public bool Remove(KeyValuePair<string, IJsonValue> item) => this.Parameters.Remove(item);
-        IJsonValue IDeepCopy<IJsonValue>.DeepCopy() => this.DeepCopy();
+        public bool Contains(KeyValuePair<string, JsonValue?> item) => this.Parameters.Contains(item);
+        public void CopyTo(KeyValuePair<string, JsonValue?>[] array, int arrayIndex) => this.Parameters.CopyTo(array, arrayIndex);
+        public bool Remove(KeyValuePair<string, JsonValue?> item) => this.Parameters.Remove(item);
         #endregion
 
         #region Dynamic
         public override IEnumerable<string> GetDynamicMemberNames() => this.Parameters.Keys;
         public override bool TryDeleteMember(DeleteMemberBinder binder)
             => this.Parameters.Remove(binder.Name);
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        private bool TryGetMember(string name, bool ignoreCase, out object? result)
         {
-            string name = binder.Name;
-            if (!this.Parameters.ContainsKey(binder.Name))
+            string? lookupName = name;
+            if (!this.Parameters.ContainsKey(lookupName))
             {
-                if (!binder.IgnoreCase) goto NOT_FOUND;
+                if (!ignoreCase) goto NOT_FOUND;
 
-                name = this.Parameters.Keys
-                    .FirstOrDefault(s => s.ToLower(CultureInfo.InvariantCulture) == binder.Name.ToLower(CultureInfo.InvariantCulture));
-                if (name is null)
+                lookupName = this.Parameters.Keys
+                    .FirstOrDefault(s => s.ToLower(CultureInfo.InvariantCulture) == name.ToLower(CultureInfo.InvariantCulture));
+                if (lookupName is null)
                     goto NOT_FOUND;
             }
 
-            result = this.Parameters[name];
+            result = this.Parameters[lookupName];
             return true;
 NOT_FOUND:
             result = null;
             return false;
         }
-        public override bool TrySetMember(SetMemberBinder binder, object value)
+        private bool TrySetMember(string name, bool ignoreCase, object? value)
         {
-            if (!(value is IJsonValue jsonValue)) //TODO: convert premitive value
+            if (!TryToJsonValue(value, out JsonValue? jsonValue))
                 return false;
-
-            var name = binder.Name;
-            if (binder.IgnoreCase)
+            string? lookupName = name;
+            if (ignoreCase)
             {
-                if (!this.Parameters.ContainsKey(name))
+                if (!this.Parameters.ContainsKey(lookupName))
                 {
-                    name = this.Parameters.Keys
-                        .FirstOrDefault(s => s.ToLower(CultureInfo.InvariantCulture) == name.ToLower(CultureInfo.InvariantCulture));
-                    name ??= binder.Name;
+                    lookupName = this.Parameters.Keys
+                        .FirstOrDefault(s => s.ToLower(CultureInfo.InvariantCulture) == name.ToLower(CultureInfo.InvariantCulture)) ?? name;
                 }
             }
 
-            this.Parameters[name] = jsonValue;
+            this.Parameters[lookupName] = jsonValue;
             return true;
         }
+        public override bool TryGetMember(GetMemberBinder binder, out object? result)
+            => TryGetMember(binder.Name, binder.IgnoreCase, out result);
+        public override bool TrySetMember(SetMemberBinder binder, object? value)
+            => TrySetMember(binder.Name, binder.IgnoreCase, value);
+        public override bool TryGetIndex(GetIndexBinder binder, object[] indexes, out object? result)
+            => TryGetMember((string) indexes[0], false, out result);
+        public override bool TrySetIndex(SetIndexBinder binder, object[] indexes, object? value)
+            => TrySetMember((string) indexes[0], false, value);
         #endregion
         private static IDictionary<TKey, TValue> CreateDictionary<TKey, TValue>(bool keepOrder)
+            where TKey : notnull
             => keepOrder ? (IDictionary<TKey, TValue>) new OrderedDictionary<TKey, TValue>() : new Dictionary<TKey, TValue>();
         private static IDictionary<TKey, TValue> CreateDictionary<TKey, TValue>(int capacity, bool keepOrder)
+            where TKey : notnull
             => keepOrder ? (IDictionary<TKey, TValue>) new OrderedDictionary<TKey, TValue>(capacity) : new Dictionary<TKey, TValue>(capacity);
     }
-    public class JsonArray : IJsonValue, IDeepCopy<JsonArray>, IList<IJsonValue>, IEnumerable<IJsonValue>, IEnumerable
+    public class JsonArray : JsonValue, IList<JsonValue?>, IEnumerable<JsonValue?>, IEnumerable
     {
-        public IList<IJsonValue> Elements { get; }
-        public IJsonValue this[int index] { get => this.Elements[index]; set => this.Elements[index] = value; }
+        public IList<JsonValue?> Elements { get; }
+        public JsonValue? this[int index] { get => this.Elements[index]; set => this.Elements[index] = value; }
 
         #region constructors
-        public JsonArray() => this.Elements = new List<IJsonValue>();
-        public JsonArray(params IJsonValue[] values) : this((IEnumerable<IJsonValue>) values) { }
-        public JsonArray(IEnumerable<IJsonValue> values) => this.Elements = new List<IJsonValue>(values);
+        public JsonArray() => this.Elements = new List<JsonValue?>();
+        public JsonArray(params JsonValue?[] values) : this((IEnumerable<JsonValue?>) values) { }
+        public JsonArray(IEnumerable<JsonValue?> values) => this.Elements = new List<JsonValue?>(values);
 
         #endregion
 
         #region ToString
         public override string ToString() => this.ToJsonCompatibleString(false);
-        public string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
+        public override string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
         {
             var builder = new StringBuilder();
-            IEnumerator<IJsonValue> enumerator = this.Elements.GetEnumerator();
+            IEnumerator<JsonValue?> enumerator = this.Elements.GetEnumerator();
             builder.Append(jsonBeginArray);
             if (enumerator.MoveNext())
             {
-                builder.Append(enumerator.Current.ToJsonCompatibleString(escapeUnicodeCharacter));
+                builder.Append(enumerator.Current?.ToJsonCompatibleString(escapeUnicodeCharacter) ?? jsonNull);
                 while (enumerator.MoveNext())
                 {
-                    builder.Append($"{jsonValueSeparator} {enumerator.Current.ToJsonCompatibleString(escapeUnicodeCharacter)}");
+                    builder.Append($"{jsonValueSeparator} {enumerator.Current?.ToJsonCompatibleString(escapeUnicodeCharacter) ?? jsonNull}");
                 }
             }
             builder.Append(jsonEndArray);
@@ -933,7 +1109,7 @@ NOT_FOUND:
         #endregion
 
         #region Equals
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is null)
                 return false;
@@ -952,6 +1128,10 @@ NOT_FOUND:
                     return false;
                 if (!thisMoveNext)
                     break;
+                if (thisEnumerator.Current is null && otherEnumerator.Current is null)
+                    continue;
+                if (thisEnumerator.Current is null || otherEnumerator.Current is null)
+                    return false;
                 if (!thisEnumerator.Current.Equals(otherEnumerator.Current))
                     return false;
             }
@@ -962,13 +1142,13 @@ NOT_FOUND:
             int hashCode = 17;
             foreach (var element in this.Elements)
             {
-                hashCode = hashCode * 31 + element.GetHashCode();
+                hashCode = hashCode * 31 + element?.GetHashCode() ?? 0;
             }
             return hashCode;
         }
         #endregion
 
-        public JsonArray DeepCopy()
+        public override JsonValue DeepCopy()
         {
             var instance = new JsonArray(this.Elements);
             for (int i = 0; i < this.Elements.Count; i++)
@@ -977,28 +1157,59 @@ NOT_FOUND:
         }
 
         #region implementation of interfaces
-        JsonValueType IJsonValue.Type => JsonValueType.Array;
+        public override JsonValueType Type => JsonValueType.Array;
         public int Count => this.Elements.Count;
         public bool IsReadOnly => this.Elements.IsReadOnly;
 
-        public IEnumerator<IJsonValue> GetEnumerator() => this.Elements.GetEnumerator();
+        public IEnumerator<JsonValue?> GetEnumerator() => this.Elements.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
-        public int IndexOf(IJsonValue item) => this.Elements.IndexOf(item);
-        public void Insert(int index, IJsonValue item) => this.Elements.Insert(index, item);
+        public int IndexOf(JsonValue? item) => this.Elements.IndexOf(item);
+        public void Insert(int index, JsonValue? item) => this.Elements.Insert(index, item);
         public void RemoveAt(int index) => this.Elements.RemoveAt(index);
-        public void Add(IJsonValue item) => this.Elements.Add(item);
+        public void Add(JsonValue? item) => this.Elements.Add(item);
         public void Clear() => this.Elements.Clear();
-        public bool Contains(IJsonValue item) => this.Elements.Contains(item);
-        public void CopyTo(IJsonValue[] array, int arrayIndex) => this.Elements.CopyTo(array, arrayIndex);
-        public bool Remove(IJsonValue item) => this.Elements.Remove(item);
-        IJsonValue IDeepCopy<IJsonValue>.DeepCopy() => this.DeepCopy();
+        public bool Contains(JsonValue? item) => this.Elements.Contains(item);
+        public void CopyTo(JsonValue?[] array, int arrayIndex) => this.Elements.CopyTo(array, arrayIndex);
+        public bool Remove(JsonValue? item) => this.Elements.Remove(item);
+        #endregion
+        #region Dynamic
+        public override bool TryGetIndex(GetIndexBinder binder, object[] indexes, out object? result)
+        {
+            uint index = (uint) indexes[0];
+            if (index < this.Elements.Count)
+            {
+                result = this.Elements[(int) indexes[0]];
+                return true;
+            }
+            else
+            {
+                result = default;
+                return false;
+            }
+        }
+
+        public override bool TrySetIndex(SetIndexBinder binder, object[] indexes, object? value)
+        {
+            int index = (int)indexes[0];
+            if ((uint)index >= this.Elements.Count)
+                return false;
+            if (TryToJsonValue(value, out JsonValue? jsonValue))
+            {
+                this.Elements[index] = jsonValue;
+                return true;
+            }
+            else
+                return false;
+        }
         #endregion
     }
 
     public static class JsonValueExtensions
     {
-        public static T Cast<T>(this IJsonValue value) where T : IJsonValue
-            => (T) value;
+        public static T? Cast<T>(this JsonValue? value) where T : JsonValue?
+            => (T?) value;
+        [return: NotNullIfNotNull("obj")]
+        public static dynamic? AsDynamic(this object? obj) => obj;
     }
 
 }
