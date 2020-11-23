@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -13,146 +14,153 @@ namespace qpwakaba.Utils
         void Insert(int index, TKey key, TValue value);
         void RemoveAt(int index);
     }
-    public class OrderedDictionary<TKey, TValue> : IOrderedDictionary<TKey, TValue>, IOrderedDictionary, IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue>
+    public class OrderedDictionary<TKey, TValue> :
+        IEnumerable<KeyValuePair<TKey, TValue>>,
+        IOrderedDictionary<TKey, TValue>,
+        IOrderedDictionary,
+        IDictionary<TKey, TValue>,
+        IReadOnlyDictionary<TKey, TValue>,
+        ISerializable
     {
-        private readonly OrderedDictionary dictionary;
-        public OrderedDictionary() : this(null) { }
-        public OrderedDictionary(IEqualityComparer<TKey> comparer)
-            => this.dictionary = new OrderedDictionary((comparer ?? EqualityComparer<TKey>.Default).ToNonGeneric());
-        public OrderedDictionary(int capacity) : this(capacity, null) { }
-        public OrderedDictionary(int capacity, IEqualityComparer<TKey> comparer)
-            => this.dictionary = new OrderedDictionary(capacity, (comparer ?? EqualityComparer<TKey>.Default).ToNonGeneric());
+        private readonly Dictionary<TKey, TValue> dic;
+        private readonly LinkedList<TKey> order = new LinkedList<TKey>();
+        private LinkedListNode<TKey> GetKeyFromIndex(int index)
+        {
+            if ((uint) index >= order.Count)
+                throw new IndexOutOfRangeException();
 
+            var node = order.First;
+            for (int i = 1; i < index; ++i)
+            {
+                node = node.Next;
+            }
+            return node;
+        }
         public TValue this[int index]
         {
-            get => (TValue) this.dictionary[index];
-            set => this.dictionary[index] = value;
+            get => this[GetKeyFromIndex(index).Value];
+            set => this[GetKeyFromIndex(index).Value] = value;
         }
-        public TValue this[TKey key]
+        object IOrderedDictionary.this[int index] { get => this[index]; set => this[index] = (TValue)value; }
+
+        public void Insert(int index, TKey key, TValue value)
         {
-            get => (TValue) this.dictionary[key];
-            set => this.dictionary[key] = value;
-        }
-
-        object IDictionary.this[object key]
-        {
-            get {
-                if (!(key is TKey))
-                    throw new KeyNotFoundException();
-                return this[(TKey) key];
-            }
-            set => this[(TKey) key] = (TValue) value;
-        }
-        object IOrderedDictionary.this[int index]
-        {
-            get => this[index];
-            set => this[index] = (TValue) value;
-        }
-
-        public ICollection<TKey> Keys { get; }
-
-        public ICollection<TValue> Values { get; }
-
-        public int Count => this.dictionary.Count;
-
-        public bool IsReadOnly => this.dictionary.IsReadOnly;
-
-        public bool IsFixedSize => false;
-
-        public bool IsSynchronized => false;
-
-        public object SyncRoot => this.dictionary;
-
-        ICollection IDictionary.Keys => (ICollection) this.Keys;
-
-        IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys
-        {
-            get {
-                var enumerator = this.GetEnumerator();
-                while (enumerator.MoveNext())
-                    yield return enumerator.Current.Key;
-            }
-        }
-
-        ICollection IDictionary.Values => (ICollection) this.Values;
-
-        IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values
-        {
-            get {
-                var enumerator = this.GetEnumerator();
-                while (enumerator.MoveNext())
-                    yield return enumerator.Current.Value;
-            }
-        }
-
-        public void Add(TKey key, TValue value) => this.dictionary.Add(key, value);
-        void ICollection<KeyValuePair<TKey, TValue>>.Add(KeyValuePair<TKey, TValue> item)
-            => this.Add(item.Key, item.Value);
-        public void Add(object key, object value) => this.Add((TKey) key, (TValue) value);
-        public void Clear() => this.dictionary.Clear();
-        bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item)
-        {
-            if (!this.ContainsKey(item.Key))
-                return false;
-            return EqualityComparer<TValue>.Default.Equals(item.Value, this[item.Key]);
-        }
-        bool IDictionary.Contains(object key) => this.dictionary.Contains(key);
-        public bool ContainsKey(TKey key) => ((IDictionary) this).Contains(key);
-        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int index)
-        {
-            var enumerator = this.dictionary.GetEnumerator();
-            enumerator.MoveNext();
-            for (int i = 0; i < this.dictionary.Count; i++, enumerator.MoveNext())
-            {
-                var entry = (DictionaryEntry) enumerator.Current;
-                array[i + index] = new KeyValuePair<TKey, TValue>((TKey)entry.Key, (TValue)entry.Value);
-            }
-        }
-        void ICollection.CopyTo(Array array, int index) => this.dictionary.CopyTo(array, index);
-
-        public void Insert(int index, object key, object value) => this.dictionary.Insert(index, key, value);
-        public void Insert(int index, TKey key, TValue value) => this.Insert(index, key, value);
-        public bool Remove(TKey key)
-        {
+            if (this.Count <= (uint) index)
+                throw new ArgumentOutOfRangeException();
+            if (key is null)
+                throw new ArgumentNullException(nameof(key));
             if (this.ContainsKey(key))
-            {
-                ((IDictionary) this).Remove(key);
-                return !this.ContainsKey(key);
-            }
-            return false;
+                throw new ArgumentException();
+
+            order.AddBefore(GetKeyFromIndex(index), key);
+            this[key] = value;
         }
-        void IDictionary.Remove(object key) => this.dictionary.Remove(key);
-        public bool Remove(KeyValuePair<TKey, TValue> item)
+        public void RemoveAt(int index)
         {
-            if (!this.ContainsKey(item.Key))
-                return false;
-            if (EqualityComparer<TValue>.Default.Equals(item.Value, this[item.Key]))
-            {
-                return this.Remove(item.Key);
-            }
-            return false;
+            if (this.Count <= (uint) index)
+                throw new ArgumentOutOfRangeException();
+            var key = GetKeyFromIndex(index);
+            this.Remove(key.Value);
+            order.Remove(key);
         }
-        public void RemoveAt(int index) => this.dictionary.RemoveAt(index);
-        public bool TryGetValue(TKey key, out TValue value)
+        public OrderedDictionary()
         {
-            if (this.ContainsKey(key))
-            {
-                value = this[key];
-                return true;
-            }
-            else
-            {
-                value = default;
-                return false;
-            }
+            dic = new();
         }
-        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+        public OrderedDictionary(IEqualityComparer<TKey> comparer)
         {
-            foreach (var key in this.Keys)
-                yield return new KeyValuePair<TKey, TValue>(key, this[key]);
+            dic = new(comparer);
         }
-        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
-        IDictionaryEnumerator IOrderedDictionary.GetEnumerator() => this.dictionary.GetEnumerator();
-        IDictionaryEnumerator IDictionary.GetEnumerator() => this.dictionary.GetEnumerator();
+        public OrderedDictionary(int capacity)
+        {
+            dic = new(capacity);
+        }
+        public OrderedDictionary(int capacity, IEqualityComparer<TKey> comparer)
+        {
+            dic = new(capacity, comparer);
+        }
+
+        private const string OrderSerializeName = "OrderedDictionary.order";
+
+        public ICollection<TKey> Keys => ((IDictionary<TKey, TValue>) this.dic).Keys;
+
+        public ICollection<TValue> Values => ((IDictionary<TKey, TValue>) this.dic).Values;
+
+        public int Count => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Count;
+
+        public bool IsReadOnly => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).IsReadOnly;
+
+        IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => ((IReadOnlyDictionary<TKey, TValue>) this.dic).Keys;
+
+        IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => ((IReadOnlyDictionary<TKey, TValue>) this.dic).Values;
+
+        bool IDictionary.IsFixedSize { get; }
+        ICollection IDictionary.Keys { get; }
+        ICollection IDictionary.Values { get; }
+        bool ICollection.IsSynchronized { get; }
+        object ICollection.SyncRoot { get; }
+
+        object IDictionary.this[object key] { get => this[(TKey)key]; set => this[(TKey)key] = (TValue)value; }
+        public TValue this[TKey key] { get => ((IDictionary<TKey, TValue>) this.dic)[key]; set => ((IDictionary<TKey, TValue>) this.dic)[key] = value; }
+
+        public OrderedDictionary(SerializationInfo info, StreamingContext context)
+        {
+            this.dic = new DeserializeDictionary(info, context);
+            this.order = (LinkedList<TKey>) info.GetValue(OrderSerializeName, typeof(LinkedList<TKey>));
+        }
+
+        public void Insert(int index, object key, object value) => throw new NotImplementedException();
+        public void Add(TKey key, TValue value) => ((IDictionary<TKey, TValue>) this.dic).Add(key, value);
+        public bool ContainsKey(TKey key) => ((IDictionary<TKey, TValue>) this.dic).ContainsKey(key);
+        public bool Remove(TKey key) => ((IDictionary<TKey, TValue>) this.dic).Remove(key);
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => ((IDictionary<TKey, TValue>) this.dic).TryGetValue(key, out value);
+        public void Add(KeyValuePair<TKey, TValue> item) => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Add(item);
+        public void Clear() => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Clear();
+        public bool Contains(KeyValuePair<TKey, TValue> item) => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Contains(item);
+        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).CopyTo(array, arrayIndex);
+        public bool Remove(KeyValuePair<TKey, TValue> item) => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Remove(item);
+        IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() => ((IEnumerable<KeyValuePair<TKey, TValue>>) this.dic).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable) this.dic).GetEnumerator();
+        void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            dic.GetObjectData(info, context);
+            info.AddValue(OrderSerializeName, order);
+        }
+        IDictionaryEnumerator IOrderedDictionary.GetEnumerator()
+            => new OrderedDictionaryEnumerator<TKey, TValue>(this, order.GetEnumerator());
+        void IDictionary.Add(object key, object value) => throw new NotImplementedException();
+        bool IDictionary.Contains(object key) => throw new NotImplementedException();
+        IDictionaryEnumerator IDictionary.GetEnumerator() => throw new NotImplementedException();
+        void IDictionary.Remove(object key) => throw new NotImplementedException();
+        void ICollection.CopyTo(Array array, int index) => throw new NotImplementedException();
+
+        private class DeserializeDictionary : Dictionary<TKey, TValue>
+        {
+            internal DeserializeDictionary(SerializationInfo info, StreamingContext context)
+                : base(info, context) { }
+        }
+    }
+    public class OrderedDictionaryEnumerator<TKey, TValue> :
+        IEnumerator<KeyValuePair<TKey, TValue>>,
+        IDictionaryEnumerator
+    {
+        private readonly IOrderedDictionary<TKey, TValue> dic;
+        private readonly IEnumerator<TKey> keys;
+
+        public OrderedDictionaryEnumerator(IOrderedDictionary<TKey, TValue> dic, IEnumerator<TKey> keys)
+        {
+            this.dic = dic;
+            this.keys = keys;
+        }
+
+        public KeyValuePair<TKey, TValue> Current => new(keys.Current, dic[keys.Current]);
+        public DictionaryEntry Entry => new(Current.Key, Current.Value);
+        public object Key => Current.Key;
+        public object Value => Current.Value;
+        object IEnumerator.Current => Current;
+
+        public void Dispose() => keys.Dispose();
+        public bool MoveNext() => keys.MoveNext();
+        public void Reset() => keys.Reset();
     }
 }

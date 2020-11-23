@@ -18,12 +18,12 @@ namespace qpwakaba.Tests
             }
 
             int x = 0;
-            dictionary.ToList().ForEach(e =>
+            foreach (var e in dictionary) 
             {
                 Assert.AreEqual(x.ToString(), e.Key);
                 Assert.AreEqual(x, e.Value);
                 x++;
-            });
+            }
         }
     }
 }

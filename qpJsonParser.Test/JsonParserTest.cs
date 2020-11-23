@@ -15,11 +15,13 @@ namespace qpwakaba.Tests
         {
             #region validation test
             InvalidJson("");
-            InvalidJson("0");
-            InvalidJson("0.5");
-            InvalidJson("true");
-            InvalidJson("false");
-            InvalidJson("null");
+            ValidJson("0");
+            ValidJson("0.5");
+            ValidJson("true");
+            ValidJson("false");
+            ValidJson("null");
+            ValidJson("\"a string value\"");
+            InvalidJson("\"a invalid string value\" \"because this string literal is illegal\"");
             InvalidJson("{");
             InvalidJson("}");
             InvalidJson("{{}");
@@ -33,8 +35,11 @@ namespace qpwakaba.Tests
             ValidJson("[]");
             ValidJson("[0.0]");
             ValidJson("[0.0, 0.1]");
+            InvalidJson("[,]");
             InvalidJson("[0.0,]");
             ValidJson("{\"out\": \"safe\"}");
+            InvalidJson("{,}");
+            InvalidJson("{\"out\": \"safe\",}");
             InvalidJson("{out: \"safe\"}");
             InvalidJson("{true: \"true\"}");
             InvalidJson("{false: \"false\"}");
@@ -98,17 +103,17 @@ namespace qpwakaba.Tests
             Assert.AreEqual
             (
                 new JsonObject(),
-                JsonParser.Parse("{}")
+                JsonParser.ParseOnce("{}")
             );
             Assert.AreEqual
             (
                 new JsonArray(),
-                JsonParser.Parse("[]")
+                JsonParser.ParseOnce("[]")
             );
             Assert.AreEqual
             (
                 new JsonArray(new JsonNumber("0.0")),
-                JsonParser.Parse("[0.0]")
+                JsonParser.ParseOnce("[0.0]")
             );
 
             Assert.AreEqual
@@ -118,7 +123,7 @@ namespace qpwakaba.Tests
                     new JsonNumber("0.0"),
                     new JsonNumber("0.1")
                 ),
-                JsonParser.Parse("[0.0, 0.1]")
+                JsonParser.ParseOnce("[0.0, 0.1]")
             );
 
             Assert.AreEqual
@@ -127,7 +132,7 @@ namespace qpwakaba.Tests
                 (
                     new KeyValuePair<string, IJsonValue>("out", new JsonString("safe"))
                 ),
-                JsonParser.Parse("{\"out\": \"safe\"}")
+                JsonParser.ParseOnce("{\"out\": \"safe\"}")
             );
             Assert.AreEqual
             (
@@ -136,7 +141,7 @@ namespace qpwakaba.Tests
                     new KeyValuePair<string, IJsonValue>("1", new JsonString("value1")),
                     new KeyValuePair<string, IJsonValue>("2", new JsonString("value2"))
                 ),
-                JsonParser.Parse("{\"1\": \"value1\", \"2\": \"value2\"}")
+                JsonParser.ParseOnce("{\"1\": \"value1\", \"2\": \"value2\"}")
             );
             {
                 Assert.AreEqual
@@ -146,7 +151,7 @@ namespace qpwakaba.Tests
                         new KeyValuePair<string, IJsonValue>("1", new JsonNumber(0.5)),
                         new KeyValuePair<string, IJsonValue>("2", new JsonNumber(-1.0E6))
                     ),
-                    JsonParser.Parse("{\"1\": 0.5, \"2\": -1.0E6}")
+                    JsonParser.ParseOnce("{\"1\": 0.5, \"2\": -1.0E6}")
                 );
                 Assert.AreEqual
                 (
@@ -155,7 +160,7 @@ namespace qpwakaba.Tests
                         new KeyValuePair<string, IJsonValue>("1", new JsonNumber((decimal) 0.5)),
                         new KeyValuePair<string, IJsonValue>("2", new JsonNumber((decimal) -1.0E6))
                     ),
-                    JsonParser.Parse("{\"1\": 0.5, \"2\": -1.0E6}")
+                    JsonParser.ParseOnce("{\"1\": 0.5, \"2\": -1.0E6}")
                 );
                 Assert.AreEqual
                 (
@@ -164,33 +169,33 @@ namespace qpwakaba.Tests
                         new KeyValuePair<string, IJsonValue>("1", new JsonNumber((float) 0.5)),
                         new KeyValuePair<string, IJsonValue>("2", new JsonNumber((float) -1.0E6))
                     ),
-                    JsonParser.Parse("{\"1\": 0.5, \"2\": -1.0E6}")
+                    JsonParser.ParseOnce("{\"1\": 0.5, \"2\": -1.0E6}")
                 );
             }
-            JsonParser.Parse("{\"1\":0.5, \"2\":-1.0E6}");
-            JsonParser.Parse("{\"1\":0.5, \"2\":-1.0E+6}");
-            JsonParser.Parse("{\"1\":0.5, \"2\":-1.0E-6}");
+            JsonParser.ParseOnce("{\"1\":0.5, \"2\":-1.0E6}");
+            JsonParser.ParseOnce("{\"1\":0.5, \"2\":-1.0E+6}");
+            JsonParser.ParseOnce("{\"1\":0.5, \"2\":-1.0E-6}");
 
 
             Assert.AreEqual
             (
                 new JsonArray(new JsonObject()),
-                JsonParser.Parse("[{}]")
+                JsonParser.ParseOnce("[{}]")
             );
             Assert.AreEqual
             (
                new JsonArray((IJsonValue) new JsonArray()),
-                JsonParser.Parse("[[]]")
+                JsonParser.ParseOnce("[[]]")
             );
             Assert.AreEqual
             (
                 new JsonArray(new JsonObject(), new JsonObject()),
-                JsonParser.Parse("[{}, {}]")
+                JsonParser.ParseOnce("[{}, {}]")
             );
             Assert.AreEqual
             (
                 new JsonArray(new JsonArray(), new JsonObject()),
-                JsonParser.Parse("[[], {}]")
+                JsonParser.ParseOnce("[[], {}]")
             );
             Assert.AreEqual(
                 new JsonObject
@@ -203,7 +208,7 @@ namespace qpwakaba.Tests
                         )
                     )
                 ),
-                JsonParser.Parse("{\"key1\": {\"key\": \"name\"}}")
+                JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}}")
             );
             Assert.AreEqual(
                 new JsonObject
@@ -223,7 +228,7 @@ namespace qpwakaba.Tests
                         )
                     )
                 ),
-                JsonParser.Parse("{\"key1\": {\"key\": \"name\"}, \"key2\": {\"key\": \"name\"}}")
+                JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key2\": {\"key\": \"name\"}}")
             );
             Assert.AreEqual(
                 new JsonObject
@@ -243,7 +248,7 @@ namespace qpwakaba.Tests
                         )
                     )
                 ),
-                JsonParser.Parse("{\"key1\": {\"key\": \"name\"}, \"key1\": {\"key\": \"name\"}}")
+                JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key1\": {\"key\": \"name\"}}")
             );
             Assert.AreEqual(
                 new JsonObject
@@ -260,115 +265,115 @@ namespace qpwakaba.Tests
                         )
                     )
                 ),
-                JsonParser.Parse("{\"key1\": [[], {\"key2\": null}]}")
+                JsonParser.ParseOnce("{\"key1\": [[], {\"key2\": null}]}")
             );
             #endregion
             #region Check if it has correct value
             #region parse an array which has only 0
             Assert.AreEqual(
                 (int) 0,
-                (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().IntegerValue
             );
             Assert.AreEqual(
                 (long) 0,
-                (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().LongValue
             );
             Assert.AreEqual(
                 (uint) 0,
-                (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().UIntValue
             );
             Assert.AreEqual(
                 (ulong) 0,
-                (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().ULongValue
             );
             Assert.AreEqual(
                 (float) 0,
-                (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().FloatValue
             );
             Assert.AreEqual(
                 (double) 0,
-                (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 0,
-                (JsonParser.Parse("[0]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DecimalValue
             );
             #endregion
             #region parse an array which has only 0.5
             Assert.AreEqual(
                 (float) 0.5,
-                (JsonParser.Parse("[0.5]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0.5]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().FloatValue
             );
             Assert.AreEqual(
                 (double) 0.5,
-                (JsonParser.Parse("[0.5]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0.5]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 0.5,
-                (JsonParser.Parse("[0.5]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[0.5]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DecimalValue
             );
             #endregion
             #region parse an array which has only 5E-3
             Assert.AreEqual(
                 (float) 0.005,
-                (JsonParser.Parse("[5E-3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E-3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().FloatValue
             );
             Assert.AreEqual(
                 (double) 0.005,
-                (JsonParser.Parse("[5E-3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E-3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 0.005,
-                (JsonParser.Parse("[5E-3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E-3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DecimalValue
             );
             #endregion
             #region parse an array which has only 5E+3
             Assert.AreEqual(
                 (int) 5000,
-                (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().IntegerValue
             );
             Assert.AreEqual(
                 (long) 5000,
-                (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().LongValue
             );
             Assert.AreEqual(
                 (uint) 5000,
-                (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().UIntValue
             );
             Assert.AreEqual(
                 (ulong) 5000,
-                (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().ULongValue
             );
             Assert.AreEqual(
                 (float) 5000,
-                (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().FloatValue
             );
             Assert.AreEqual(
                 (double) 5000,
-                (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DoubleValue
             );
             Assert.AreEqual(
                 (decimal) 5000,
-                (JsonParser.Parse("[5E+3]").Cast<JsonArray>())[0]
+                (JsonParser.ParseOnce("[5E+3]").Cast<JsonArray>())[0]
                     .Cast<JsonNumber>().DecimalValue
             );
             #endregion
@@ -376,13 +381,13 @@ namespace qpwakaba.Tests
             const string dummyJson = "[{\"_id\":\"5b1ba9ce93fe7f2c376613a6\",\"index\":0,\"guid\":\"7f2238b4-33fb-4da1-a847-09201bf18c4e\",\"isActive\":true,\"balance\":\"$2,498.90\",\"picture\":\"http://placehold.it/32x32\",\"age\":29,\"eyeColor\":\"brown\",\"name\":\"Rosanna Curry\",\"gender\":\"female\",\"company\":\"PAPRICUT\",\"email\":\"rosannacurry@papricut.com\",\"phone\":\"+1 (921) 570-3611\",\"address\":\"828 Chase Court, Ryderwood, Colorado, 7491\",\"about\":\"Est exercitation ea duis culpa aliquip nulla dolor qui. Reprehenderit irure laborum ullamco id culpa aliqua reprehenderit aliquip commodo. Velit in ea elit do. Sint elit commodo voluptate do consectetur et pariatur officia ullamco excepteur. Ut ut proident proident deserunt Lorem nulla amet duis deserunt. Ullamco in velit ipsum consequat nulla esse.\\r\\n\",\"registered\":\"2015-10-14T02:50:18 -09:00\",\"latitude\":81.009721,\"longitude\":-6.631632,\"tags\":[\"tempor\",\"non\",\"consectetur\",\"proident\",\"non\",\"enim\",\"mollit\"],\"friends\":[{\"id\":0,\"name\":\"Reyes Branch\"},{\"id\":1,\"name\":\"Reva Grimes\"},{\"id\":2,\"name\":\"Vicky Whitfield\"}],\"greeting\":\"Hello, Rosanna Curry! You have 9 unread messages.\",\"favoriteFruit\":\"apple\"},{\"_id\":\"5b1ba9ceeaa9ca32ba9dbf27\",\"index\":1,\"guid\":\"e7f0ce04-b8af-4403-aa53-fbdf4ceb57da\",\"isActive\":true,\"balance\":\"$1,819.55\",\"picture\":\"http://placehold.it/32x32\",\"age\":39,\"eyeColor\":\"green\",\"name\":\"Georgia Shepherd\",\"gender\":\"female\",\"company\":\"ZENTILITY\",\"email\":\"georgiashepherd@zentility.com\",\"phone\":\"+1 (957) 435-3060\",\"address\":\"689 Polar Street, Axis, Minnesota, 2665\",\"about\":\"Sunt ut sunt reprehenderit sit labore nisi duis velit adipisicing et ad sit. Nulla est commodo labore proident est non amet proident irure elit. Nulla non dolore minim sunt minim nulla nulla dolore in. Aliquip magna elit fugiat esse aliquip ad elit occaecat eu enim commodo. Eiusmod incididunt fugiat non minim.\\r\\n\",\"registered\":\"2017-07-26T09:23:26 -09:00\",\"latitude\":65.917926,\"longitude\":82.650233,\"tags\":[\"sunt\",\"cupidatat\",\"nostrud\",\"nisi\",\"amet\",\"eiusmod\",\"commodo\"],\"friends\":[{\"id\":0,\"name\":\"Norman Munoz\"},{\"id\":1,\"name\":\"Lara Dominguez\"},{\"id\":2,\"name\":\"Salinas Santana\"}],\"greeting\":\"Hello, Georgia Shepherd! You have 10 unread messages.\",\"favoriteFruit\":\"strawberry\"},{\"_id\":\"5b1ba9ce262806f5842e531b\",\"index\":2,\"guid\":\"0f4fc07a-a393-415e-9cbb-bdffce18a5bb\",\"isActive\":true,\"balance\":\"$1,344.84\",\"picture\":\"http://placehold.it/32x32\",\"age\":25,\"eyeColor\":\"brown\",\"name\":\"Jeri Harper\",\"gender\":\"female\",\"company\":\"BALOOBA\",\"email\":\"jeriharper@balooba.com\",\"phone\":\"+1 (826) 581-3763\",\"address\":\"231 Boynton Place, Belmont, Maryland, 5018\",\"about\":\"Eu laborum cillum fugiat consequat. Tempor labore pariatur nulla mollit duis excepteur nostrud. Non esse id proident laboris.\\r\\n\",\"registered\":\"2017-05-30T11:26:46 -09:00\",\"latitude\":21.54895,\"longitude\":13.878004,\"tags\":[\"aliqua\",\"id\",\"dolor\",\"tempor\",\"excepteur\",\"et\",\"pariatur\"],\"friends\":[{\"id\":0,\"name\":\"Holmes Ryan\"},{\"id\":1,\"name\":\"Soto Zimmerman\"},{\"id\":2,\"name\":\"Katherine Maddox\"}],\"greeting\":\"Hello, Jeri Harper! You have 7 unread messages.\",\"favoriteFruit\":\"banana\"},{\"_id\":\"5b1ba9ceb711e221ee6a0e51\",\"index\":3,\"guid\":\"727062c2-c6c2-4f16-8665-850f0280c3a5\",\"isActive\":false,\"balance\":\"$2,147.83\",\"picture\":\"http://placehold.it/32x32\",\"age\":25,\"eyeColor\":\"blue\",\"name\":\"Sonya Hamilton\",\"gender\":\"female\",\"company\":\"AUTOMON\",\"email\":\"sonyahamilton@automon.com\",\"phone\":\"+1 (808) 440-2471\",\"address\":\"768 Batchelder Street, Welda, Washington, 7247\",\"about\":\"Minim fugiat qui fugiat dolore id qui dolor amet ipsum reprehenderit anim cillum sit. Laboris ad proident ipsum sunt id laboris cillum do duis dolore eiusmod proident. Aute nulla ut qui velit aute velit. Velit exercitation mollit ad ad consectetur ut nisi non fugiat Lorem aliquip do. Do consectetur exercitation commodo consectetur et. Sint quis aliquip minim magna enim excepteur Lorem anim officia sint veniam nostrud officia. Labore eu nostrud Lorem ipsum nulla aute ea irure sit nisi minim.\\r\\n\",\"registered\":\"2015-09-30T03:00:34 -09:00\",\"latitude\":-70.924781,\"longitude\":-83.966263,\"tags\":[\"sint\",\"in\",\"irure\",\"ullamco\",\"amet\",\"minim\",\"reprehenderit\"],\"friends\":[{\"id\":0,\"name\":\"Livingston Barton\"},{\"id\":1,\"name\":\"Finch Chen\"},{\"id\":2,\"name\":\"Margo Nicholson\"}],\"greeting\":\"Hello, Sonya Hamilton! You have 2 unread messages.\",\"favoriteFruit\":\"apple\"},{\"_id\":\"5b1ba9cedb7ea73a261d5070\",\"index\":4,\"guid\":\"63aa4a67-2de5-49ee-b0bd-f71944b61398\",\"isActive\":true,\"balance\":\"$1,625.28\",\"picture\":\"http://placehold.it/32x32\",\"age\":36,\"eyeColor\":\"green\",\"name\":\"Harriett Parrish\",\"gender\":\"female\",\"company\":\"BRAINQUIL\",\"email\":\"harriettparrish@brainquil.com\",\"phone\":\"+1 (978) 502-2817\",\"address\":\"921 Empire Boulevard, Brandermill, Guam, 6691\",\"about\":\"Deserunt voluptate laborum mollit minim veniam dolor aliqua esse ullamco reprehenderit culpa non. Esse duis enim qui laboris consectetur dolore commodo tempor amet. Lorem id commodo do elit. Minim ipsum proident esse ea sit. Fugiat esse velit esse laboris officia.\\r\\n\",\"registered\":\"2014-11-28T01:05:44 -09:00\",\"latitude\":84.691056,\"longitude\":85.326845,\"tags\":[\"veniam\",\"minim\",\"labore\",\"occaecat\",\"dolor\",\"sunt\",\"nulla\"],\"friends\":[{\"id\":0,\"name\":\"Taylor Logan\"},{\"id\":1,\"name\":\"Knapp Leach\"},{\"id\":2,\"name\":\"Melinda Hicks\"}],\"greeting\":\"Hello, Harriett Parrish! You have 9 unread messages.\",\"favoriteFruit\":\"apple\"}]";
 
             Assert.AreEqual(
-                JsonParser.Parse(dummyJson),
-                JsonParser.Parse(dummyJson)
+                JsonParser.ParseOnce(dummyJson),
+                JsonParser.ParseOnce(dummyJson)
             );
 
             Assert.AreEqual(
-                JsonParser.Parse(dummyJson, false),
-                JsonParser.Parse(dummyJson, true)
+                JsonParser.ParseOnce(dummyJson, false),
+                JsonParser.ParseOnce(dummyJson, true)
             );
         }
 
@@ -455,13 +460,13 @@ namespace qpwakaba.Tests
                     )
                 )
             );
-            yield return JsonParser.Parse("[{}]");
-            yield return JsonParser.Parse("[[]]");
-            yield return JsonParser.Parse("[{}, {}]");
-            yield return JsonParser.Parse("[[], {}]");
-            yield return JsonParser.Parse("{\"key1\": {\"key\": \"name\"}, \"key2\": {\"key\": \"name\"}}");
-            yield return JsonParser.Parse("{\"key1\": {\"key\": \"name\"}, \"key1\": {\"key\": \"name\"}}");
-            yield return JsonParser.Parse("{\"key1\": [[], {\"key2\": null}]}");
+            yield return JsonParser.ParseOnce("[{}]");
+            yield return JsonParser.ParseOnce("[[]]");
+            yield return JsonParser.ParseOnce("[{}, {}]");
+            yield return JsonParser.ParseOnce("[[], {}]");
+            yield return JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key2\": {\"key\": \"name\"}}");
+            yield return JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key1\": {\"key\": \"name\"}}");
+            yield return JsonParser.ParseOnce("{\"key1\": [[], {\"key2\": null}]}");
         }
 
         [TestMethod]
@@ -498,12 +503,12 @@ namespace qpwakaba.Tests
                     default:
                         continue;
                 }
-                Assert.AreEqual(value, JsonParser.Parse(value.ToJsonCompatibleString()));
+                Assert.AreEqual(value, JsonParser.ParseOnce(value.ToJsonCompatibleString()));
             }
         }
 
-        private static void ValidJson(string json) => JsonParser.Parse(json);
-        private static void InvalidJson(string json) => Assert.ThrowsException<InvalidDataException>(() => JsonParser.Parse(json));
+        private static void ValidJson(string json) => JsonParser.ParseOnce(json);
+        private static void InvalidJson(string json) => Assert.ThrowsException<InvalidDataException>(() => JsonParser.ParseOnce(json));
 
         [TestMethod]
         public void NumberEqualsTest()
@@ -583,72 +588,89 @@ namespace qpwakaba.Tests
             Assert.AreEqual(-1, JsonNumber.Log10i("-0.1"));
         }
 
+        private static bool IsValidNumber(string str)
+        {
+            try
+            {
+                var val = JsonParser.ParseOnce(str);
+                if (val is not JsonNumber num) return false;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
         [TestMethod]
         public void IsValidNumberTest()
         {
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("1E400"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("3.141592653589793238462643383279"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber(""));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("{"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("}"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("+1"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("+0"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("iosdajnvx"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("true"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("false"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("null"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("INF"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("inf"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("NaN"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("1.8"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("35248.9"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-3541.5"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("0"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-0"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-0.0"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("0.0"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1..0"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("0..0"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("-0..0"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("-1..0"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("03"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("08"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("0x1F"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("-002"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("00"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("1E3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("1e3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("1E+3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("1e+3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-1E+3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-1e+3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-1E-3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-1e-3"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("1e03"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-1e03"));
-            Assert.IsTrue(JsonTokenRule.IsValidNumber("-1e0000003"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1E"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1e"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1Ee"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1eE"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1E1.0"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1e0.3"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1."));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1.E"));
-            Assert.IsFalse(JsonTokenRule.IsValidNumber("1.e"));
+            Assert.IsTrue(IsValidNumber("1E400"));
+            Assert.IsTrue(IsValidNumber("3.141592653589793238462643383279"));
+            Assert.IsFalse(IsValidNumber(""));
+            Assert.IsFalse(IsValidNumber("{"));
+            Assert.IsFalse(IsValidNumber("}"));
+            Assert.IsFalse(IsValidNumber("+1"));
+            Assert.IsFalse(IsValidNumber("+0"));
+            Assert.IsFalse(IsValidNumber("iosdajnvx"));
+            Assert.IsFalse(IsValidNumber("true"));
+            Assert.IsFalse(IsValidNumber("false"));
+            Assert.IsFalse(IsValidNumber("null"));
+            Assert.IsFalse(IsValidNumber("INF"));
+            Assert.IsFalse(IsValidNumber("inf"));
+            Assert.IsFalse(IsValidNumber("NaN"));
+            Assert.IsTrue(IsValidNumber("1.8"));
+            Assert.IsTrue(IsValidNumber("35248.9"));
+            Assert.IsTrue(IsValidNumber("-3541.5"));
+            Assert.IsTrue(IsValidNumber("0"));
+            Assert.IsTrue(IsValidNumber("-0"));
+            Assert.IsTrue(IsValidNumber("-0.0"));
+            Assert.IsTrue(IsValidNumber("0.0"));
+            Assert.IsFalse(IsValidNumber("1..0"));
+            Assert.IsFalse(IsValidNumber("0..0"));
+            Assert.IsFalse(IsValidNumber("-0..0"));
+            Assert.IsFalse(IsValidNumber("-1..0"));
+            Assert.IsFalse(IsValidNumber("03"));
+            Assert.IsFalse(IsValidNumber("08"));
+            Assert.IsFalse(IsValidNumber("33 4"));
+            Assert.IsFalse(IsValidNumber("33 .4"));
+            Assert.IsFalse(IsValidNumber("33. 4"));
+            Assert.IsFalse(IsValidNumber("33 . 4"));
+            Assert.IsFalse(IsValidNumber("0x1F"));
+            Assert.IsFalse(IsValidNumber("-002"));
+            Assert.IsFalse(IsValidNumber("00"));
+            Assert.IsTrue(IsValidNumber("1E3"));
+            Assert.IsTrue(IsValidNumber("1e3"));
+            Assert.IsTrue(IsValidNumber("1E+3"));
+            Assert.IsTrue(IsValidNumber("1e+3"));
+            Assert.IsTrue(IsValidNumber("-1E+3"));
+            Assert.IsTrue(IsValidNumber("-1e+3"));
+            Assert.IsTrue(IsValidNumber("-1E-3"));
+            Assert.IsTrue(IsValidNumber("-1e-3"));
+            Assert.IsTrue(IsValidNumber("1e03"));
+            Assert.IsTrue(IsValidNumber("-1e03"));
+            Assert.IsTrue(IsValidNumber("-1e0000003"));
+            Assert.IsFalse(IsValidNumber("1E"));
+            Assert.IsFalse(IsValidNumber("1e"));
+            Assert.IsFalse(IsValidNumber("1Ee"));
+            Assert.IsFalse(IsValidNumber("1eE"));
+            Assert.IsFalse(IsValidNumber("1E1.0"));
+            Assert.IsFalse(IsValidNumber("1e0.3"));
+            Assert.IsFalse(IsValidNumber("1."));
+            Assert.IsFalse(IsValidNumber("1.E"));
+            Assert.IsFalse(IsValidNumber("1.e"));
         }
 
         [TestMethod]
         public void IsDigitTest()
         {
             for (char c = (char) 0; c < '0'; c++)
-                Assert.IsFalse(JsonTokenRule.IsDigit(c));
+                Assert.IsFalse(JsonParser.IsDigit(c));
             for (char c = '0'; c <= '9'; c++)
-                Assert.IsTrue(JsonTokenRule.IsDigit(c));
+                Assert.IsTrue(JsonParser.IsDigit(c));
 
             //(char)0xFFFF + (char)0x0001 = (char)0x0000
             for (char c = (char) ('9' + 1); c != (char) 0; c++)
-                Assert.IsFalse(JsonTokenRule.IsDigit(c));
+                Assert.IsFalse(JsonParser.IsDigit(c));
         }
 
         [TestMethod]

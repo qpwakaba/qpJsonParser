@@ -1,11 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using qpwakaba.Utils;
 
-using static qpwakaba.JsonSpecialCharacters;
+using static qpwakaba.JsonParser;
 namespace qpwakaba
 {
     public enum JsonValueType
@@ -20,9 +23,9 @@ namespace qpwakaba
     {
         T DeepCopy();
     }
-    public interface IJsonValue : IJsonToken, IDeepCopy<IJsonValue>
+    public interface IJsonValue : IDeepCopy<IJsonValue>
     {
-        new JsonValueType Type { get; }
+        JsonValueType Type { get; }
         string ToString();
         string ToJsonCompatibleString(bool escapeUnicodeCharacter = false);
     }
@@ -52,7 +55,6 @@ namespace qpwakaba
             => ToString();
 
         #region implementation of interfaces
-        JsonTokenType IJsonToken.Type => JsonTokenType.Value;
         JsonValueType IJsonValue.Type => JsonValueType.Literal;
         public int CompareTo(object obj) => this.Value.CompareTo(obj);
         public int CompareTo(bool other) => this.Value.CompareTo(other);
@@ -97,7 +99,6 @@ namespace qpwakaba
         public string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
             => ToString();
 
-        JsonTokenType IJsonToken.Type => JsonTokenType.Value;
         IJsonValue IDeepCopy<IJsonValue>.DeepCopy() => new JsonNull();
     }
     public class JsonNumber : IJsonValue, IComparable, IComparable<int>, IComparable<long>, IComparable<uint>,
@@ -108,7 +109,7 @@ namespace qpwakaba
         #region constructors
         public JsonNumber(string value)
         {
-            if (!JsonTokenRule.IsValidNumber(value))
+            if (!JsonParser.IsValidNumber(value))
                 throw new ArgumentException($"{value} is not a valid number.");
             this.StringValue = value;
         }
@@ -453,7 +454,6 @@ namespace qpwakaba
         #endregion
 
         #region implementation of interfaces
-        JsonTokenType IJsonToken.Type => JsonTokenType.Value;
         JsonValueType IJsonValue.Type => JsonValueType.Number;
         public int CompareTo(object obj) => this.DecimalValue.CompareTo(obj);
         public int CompareTo(int other) => this.IntegerValue.CompareTo(other);
@@ -562,7 +562,6 @@ namespace qpwakaba
         #endregion
 
         #region implementation of interfaces
-        JsonTokenType IJsonToken.Type => JsonTokenType.Value;
         JsonValueType IJsonValue.Type => JsonValueType.String;
         public int CompareTo(object obj) => this.Value.CompareTo(obj);
         public object Clone() => new JsonString(this.Value);
@@ -724,7 +723,7 @@ namespace qpwakaba
         }
         #endregion
     }
-    public class JsonObject : IJsonValue, IDeepCopy<JsonObject>, IDictionary<string, IJsonValue>, IEnumerable<KeyValuePair<string, IJsonValue>>, IEnumerable
+    public class JsonObject : DynamicObject, IJsonValue, IDeepCopy<JsonObject>, IDictionary<string, IJsonValue>, IEnumerable<KeyValuePair<string, IJsonValue>>, IEnumerable
     {
         public IDictionary<string, IJsonValue> Parameters { get; }
         public IJsonValue this[string key] { get => this.Parameters[key]; set => this.Parameters[key] = value; }
@@ -734,62 +733,21 @@ namespace qpwakaba
             : this(values, false) { }
         public JsonObject(bool keepOrder, params KeyValuePair<string, IJsonValue>[] values)
             : this(values, keepOrder) { }
-        public JsonObject(bool keepOrder = false) : this(new EmptyEnumerator<KeyValuePair<string, IJsonValue>>(), keepOrder) { }
-        public JsonObject(IEnumerable<KeyValuePair<string, IJsonValue>> values, bool keepOrder = false)
-            : this(values.GetEnumerator(), keepOrder) { }
-        public JsonObject(IEnumerator<KeyValuePair<string, IJsonValue>> values, bool keepOrder = false)
+        public JsonObject(bool keepOrder = false)
         {
             this.Parameters = CreateDictionary<string, IJsonValue>(keepOrder);
-            while (values.MoveNext())
-            {
-                if (!this.Parameters.ContainsKey(values.Current.Key))
-                    this.Parameters.Add(values.Current);
+        }
+        public JsonObject(IEnumerable<KeyValuePair<string, IJsonValue>> values, bool keepOrder = false)
+            : this(keepOrder)
+        {
+            foreach (var current in values)
+            { 
+                if (!this.Parameters.ContainsKey(current.Key))
+                    this.Parameters.Add(current);
             }
         }
-        internal JsonObject(IEnumerable<IJsonToken> tokens, bool keepOrder) : this(tokens.GetEnumerator(), keepOrder) { }
-        internal JsonObject(IEnumerator<IJsonToken> tokens, bool keepOrder)
+        public JsonObject(IEnumerator<KeyValuePair<string, IJsonValue>> values, bool keepOrder = false)
         {
-            this.Parameters = CreateDictionary<string, IJsonValue>(keepOrder);
-            if (tokens.MoveNext())
-            {
-                if (tokens.Current.Type != JsonTokenType.BeginObject)
-                    throw new InvalidDataException();
-                if (!tokens.MoveNext())
-                    throw new InvalidDataException();
-                if (tokens.Current.Type != JsonTokenType.EndObject)
-                    do
-                    {
-                        if (tokens.Current.Type != JsonTokenType.Value)
-                            throw new InvalidDataException();
-                        if (((IJsonValue) tokens.Current).Type != JsonValueType.String)
-                            throw new InvalidDataException();
-                        var key = (JsonString) tokens.Current;
-
-                        if (!tokens.MoveNext())
-                            throw new InvalidDataException();
-                        if (tokens.Current.Type != JsonTokenType.NameSeparator)
-                            throw new InvalidDataException();
-                        if (!tokens.MoveNext())
-                            throw new InvalidDataException();
-
-                        if (tokens.Current.Type != JsonTokenType.Value)
-                            throw new InvalidDataException();
-                        var value = (IJsonValue) tokens.Current;
-
-                        this.Parameters[key.Value] = value;
-
-                        if (!tokens.MoveNext())
-                            throw new InvalidDataException();
-                        else if (tokens.Current.Type == JsonTokenType.EndObject)
-                            break;
-                        // disallow non value separator
-                        else if (tokens.Current.Type != JsonTokenType.ValueSeparator)
-                            throw new InvalidDataException();
-                        // disallow trailing comma (value, })
-                        else if (!tokens.MoveNext())
-                            throw new InvalidDataException();
-                    } while (true);
-            }
         }
         #endregion
 
@@ -875,7 +833,6 @@ namespace qpwakaba
         }
 
         #region implementation of interfaces
-        JsonTokenType IJsonToken.Type => JsonTokenType.Value;
         JsonValueType IJsonValue.Type => JsonValueType.Object;
         public ICollection<string> Keys => this.Parameters.Keys;
         public ICollection<IJsonValue> Values => this.Parameters.Values;
@@ -895,6 +852,49 @@ namespace qpwakaba
         IJsonValue IDeepCopy<IJsonValue>.DeepCopy() => this.DeepCopy();
         #endregion
 
+        #region Dynamic
+        public override IEnumerable<string> GetDynamicMemberNames() => this.Parameters.Keys;
+        public override bool TryDeleteMember(DeleteMemberBinder binder)
+            => this.Parameters.Remove(binder.Name);
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            string name = binder.Name;
+            if (!this.Parameters.ContainsKey(binder.Name))
+            {
+                if (!binder.IgnoreCase) goto NOT_FOUND;
+
+                name = this.Parameters.Keys
+                    .FirstOrDefault(s => s.ToLower(CultureInfo.InvariantCulture) == binder.Name.ToLower(CultureInfo.InvariantCulture));
+                if (name is null)
+                    goto NOT_FOUND;
+            }
+
+            result = this.Parameters[name];
+            return true;
+NOT_FOUND:
+            result = null;
+            return false;
+        }
+        public override bool TrySetMember(SetMemberBinder binder, object value)
+        {
+            if (!(value is IJsonValue jsonValue)) //TODO: convert premitive value
+                return false;
+
+            var name = binder.Name;
+            if (binder.IgnoreCase)
+            {
+                if (!this.Parameters.ContainsKey(name))
+                {
+                    name = this.Parameters.Keys
+                        .FirstOrDefault(s => s.ToLower(CultureInfo.InvariantCulture) == name.ToLower(CultureInfo.InvariantCulture));
+                    name ??= binder.Name;
+                }
+            }
+
+            this.Parameters[name] = jsonValue;
+            return true;
+        }
+        #endregion
         private static IDictionary<TKey, TValue> CreateDictionary<TKey, TValue>(bool keepOrder)
             => keepOrder ? (IDictionary<TKey, TValue>) new OrderedDictionary<TKey, TValue>() : new Dictionary<TKey, TValue>();
         private static IDictionary<TKey, TValue> CreateDictionary<TKey, TValue>(int capacity, bool keepOrder)
@@ -909,41 +909,7 @@ namespace qpwakaba
         public JsonArray() => this.Elements = new List<IJsonValue>();
         public JsonArray(params IJsonValue[] values) : this((IEnumerable<IJsonValue>) values) { }
         public JsonArray(IEnumerable<IJsonValue> values) => this.Elements = new List<IJsonValue>(values);
-        public JsonArray(IEnumerator<IJsonValue> values) : this(values.ToEnumerable()) { }
 
-        internal JsonArray(IEnumerable<IJsonToken> tokens) : this(tokens.GetEnumerator()) { }
-        internal JsonArray(IEnumerator<IJsonToken> tokens)
-        {
-            // [ value *(, value) ]
-            this.Elements = new List<IJsonValue>();
-            if (tokens.MoveNext())
-            {
-                if (tokens.Current.Type != JsonTokenType.BeginArray)
-                    throw new InvalidDataException();
-                if (!tokens.MoveNext())
-                    throw new InvalidDataException();
-                if (tokens.Current.Type != JsonTokenType.EndArray)
-                    do
-                    {
-                        var token = tokens.Current;
-                        if (token.Type != JsonTokenType.Value)
-                            throw new InvalidDataException();
-
-                        this.Elements.Add((IJsonValue) token);
-
-                        if (!tokens.MoveNext())
-                            throw new InvalidDataException();
-                        else if (tokens.Current.Type == JsonTokenType.EndArray)
-                            break;
-                        // disallow non value separator
-                        else if (tokens.Current.Type != JsonTokenType.ValueSeparator)
-                            throw new InvalidDataException();
-                        // disallow trailing comma (value, ])
-                        else if (!tokens.MoveNext())
-                            throw new InvalidDataException();
-                    } while (true);
-            }
-        }
         #endregion
 
         #region ToString
@@ -1011,7 +977,6 @@ namespace qpwakaba
         }
 
         #region implementation of interfaces
-        JsonTokenType IJsonToken.Type => JsonTokenType.Value;
         JsonValueType IJsonValue.Type => JsonValueType.Array;
         public int Count => this.Elements.Count;
         public bool IsReadOnly => this.Elements.IsReadOnly;
