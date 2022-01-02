@@ -237,18 +237,18 @@ namespace qpwakaba.Tests
                     (
                         "key1", new JsonObject
                         (
-                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name"))
+                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name1"))
                         )
                     ),
                     new KeyValuePair<string, JsonValue?>
                     (
                         "key1", new JsonObject
                         (
-                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name"))
+                            new KeyValuePair<string, JsonValue?>("key", new JsonString("name2"))
                         )
                     )
                 ),
-                JsonParser.ParseOnce("{\"key1\": {\"key\": \"name\"}, \"key1\": {\"key\": \"name\"}}")
+                JsonParser.ParseOnce("{\"key1\": {\"key\": \"name1\"}, \"key1\": {\"key\": \"name2\"}}")
             );
             Assert.AreEqual(
                 new JsonObject

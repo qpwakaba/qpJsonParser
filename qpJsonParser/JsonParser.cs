@@ -104,7 +104,6 @@ namespace qpwakaba
         internal static bool IsLiteralChar(char c) => c is >= 'a' and <= 'z';
 
         private readonly StringBuilder buf = new();
-        private bool IsInString { get; set; } = false;
         public dynamic? Dynamic(string json) => Parse(json);
         public dynamic? Dynamic(string json, bool keepOrder) => Parse(json, keepOrder);
         public JsonValue? Parse(string json) => Parse(json, false);

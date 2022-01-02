@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -80,12 +81,14 @@ namespace qpwakaba
             var fields = obj.GetType().GetFields(flag);
             var props = obj.GetType().GetProperties(flag);
 
-            var backings = new HashSet<string>();
-
             jo = new();
             foreach (var prop in props)
             {
                 if (prop.GetCustomAttribute<NonSerializedAttribute>() is not null)
+                    continue;
+                if (!prop.CanWrite)
+                    continue;
+                if (prop.GetIndexParameters().Length > 0)
                     continue;
                 if (!TryToJsonValue(prop.GetValue(obj), out JsonValue? jv))
                     return false;
@@ -125,16 +128,17 @@ namespace qpwakaba
             }
             return true;
         }
-        internal static bool TryToJsonValue(object? obj, out JsonValue? value)
+        [return: NotNullIfNotNull("obj")]
+        public static JsonValue? ToJsonValue<T>(T obj)
+        {
+            if (TryToJsonValue(obj, out JsonValue? value)) return value;
+            else throw new ArgumentException();
+        }
+        public static bool TryToJsonValue<T>(T? obj, out JsonValue? value)
+            where T : struct
         {
             switch (obj)
             {
-                case JsonValue jv:
-                    value = jv;
-                    return true;
-                case string str:
-                    value = new JsonString(str);
-                    return true;
                 case int i:
                     value = new JsonNumber(i);
                     return true;
@@ -144,14 +148,36 @@ namespace qpwakaba
                 case double d:
                     value = new JsonNumber(d);
                     return true;
-                case null:
-                    value = null;
-                    return true;
                 case long l:
+                    value = new JsonNumber(l);
+                    return true;
+                case uint i:
+                    value = new JsonNumber(i);
+                    return true;
+                case ulong l:
                     value = new JsonNumber(l);
                     return true;
                 case decimal d:
                     value = new JsonNumber(d);
+                    return true;
+                case null:
+                    value = null;
+                    return true;
+                default:
+                {
+                    bool result = TryToJsonValue(obj, out JsonObject? jo);
+                    value = jo;
+                    return result;
+                }
+            }
+        }
+        public static bool TryToJsonValue<T>(T? obj, out JsonValue? value)
+            where T : class
+        {
+            switch (obj)
+            {
+                case string str:
+                    value = new JsonString(str);
                     return true;
                 case Array arr:
                 {
@@ -165,8 +191,11 @@ namespace qpwakaba
                     value = ja;
                     return result;
                 }
-                case bool b:
-                    value = new JsonBoolean(b);
+                case null:
+                    value = null;
+                    return true;
+                case JsonValue jv:
+                    value = jv;
                     return true;
                 default:
                 {
@@ -176,6 +205,181 @@ namespace qpwakaba
                 }
             }
         }
+        public static bool TryToJsonValue(object? obj, out JsonValue? value)
+        {
+            switch (obj)
+            {
+                case int i:
+                    value = new JsonNumber(i);
+                    return true;
+                case float f:
+                    value = new JsonNumber(f);
+                    return true;
+                case double d:
+                    value = new JsonNumber(d);
+                    return true;
+                case long l:
+                    value = new JsonNumber(l);
+                    return true;
+                case string str:
+                    value = new JsonString(str);
+                    return true;
+                case uint i:
+                    value = new JsonNumber(i);
+                    return true;
+                case ulong l:
+                    value = new JsonNumber(l);
+                    return true;
+                case byte b:
+                    value = new JsonNumber(b);
+                    return true;
+                case sbyte b:
+                    value = new JsonNumber(b);
+                    return true;
+                case short s:
+                    value = new JsonNumber(s);
+                    return true;
+                case ushort s:
+                    value = new JsonNumber(s);
+                    return true;
+                case decimal d:
+                    value = new JsonNumber(d);
+                    return true;
+                case Array arr:
+                {
+                    bool result = TryToJsonValue(arr, out JsonArray? ja);
+                    value = ja;
+                    return result;
+                }
+                case bool b:
+                    value = new JsonBoolean(b);
+                    return true;
+                case null:
+                    value = null;
+                    return true;
+                case JsonValue jv:
+                    value = jv;
+                    return true;
+                default:
+                {
+                    var type = obj.GetType();
+                    if (type.IsGenericType) {
+                        if (type.GetGenericTypeDefinition() == typeof(Dictionary<,>) &&
+                            type.GenericTypeArguments[0] == typeof(string))
+                        {
+                            value = new JsonObject(ToObject((IDictionary)obj));
+                            return true;
+                        }
+                        else if (type.GetGenericTypeDefinition() == typeof(List<>))
+                        {
+                            value = new JsonArray(ToArray((IEnumerable)obj));
+                            return true;
+                        }
+                    }
+                    bool result = TryToJsonValue(obj, out JsonObject? jo);
+                    value = jo;
+                    return result;
+                }
+            }
+
+            IEnumerator<KeyValuePair<string, JsonValue?>> ToObject(IDictionary dict)
+            {
+                var enumerator = dict.GetEnumerator();
+                while (enumerator.MoveNext())
+                    yield return new((string)enumerator.Key, ToJsonValue(enumerator.Value));
+            }
+
+            IEnumerable<JsonValue?> ToArray(IEnumerable list)
+                => list.Cast<object>().Select(ToJsonValue);
+        }
+        public T ToObject<T>() => (T) ToObject(typeof(T));
+
+        public abstract object ToObject(Type type);
+        //public object ToObject(Type type)
+        //{
+        //    if (type == typeof(int))
+        //    {
+        //    }
+        //    switch (obj)
+        //    {
+        //        case int i:
+        //            value = new JsonNumber(i);
+        //            return true;
+        //        case float f:
+        //            value = new JsonNumber(f);
+        //            return true;
+        //        case double d:
+        //            value = new JsonNumber(d);
+        //            return true;
+        //        case long l:
+        //            value = new JsonNumber(l);
+        //            return true;
+        //        case string str:
+        //            value = new JsonString(str);
+        //            return true;
+        //        case uint i:
+        //            value = new JsonNumber(i);
+        //            return true;
+        //        case ulong l:
+        //            value = new JsonNumber(l);
+        //            return true;
+        //        case decimal d:
+        //            value = new JsonNumber(d);
+        //            return true;
+        //        case Array arr:
+        //        {
+        //            bool result = TryToJsonValue(arr, out JsonArray? ja);
+        //            value = ja;
+        //            return result;
+        //        }
+        //        case IList lst:
+        //        {
+        //            bool result = TryToJsonValue(lst, out JsonArray? ja);
+        //            value = ja;
+        //            return result;
+        //        }
+        //        case bool b:
+        //            value = new JsonBoolean(b);
+        //            return true;
+        //        case null:
+        //            value = null;
+        //            return true;
+        //        case JsonValue jv:
+        //            value = jv;
+        //            return true;
+        //        default:
+        //        {
+        //            bool result = TryToJsonValue(obj, out JsonObject? jo);
+        //            value = jo;
+        //            return result;
+        //        }
+        //    }
+            
+        //    const BindingFlags flag = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        //    var fields = type.GetFields(flag);
+        //    var props = type.GetProperties(flag);
+
+
+        //    foreach (var prop in props)
+        //    {
+        //        if (prop.GetCustomAttribute<NonSerializedAttribute>() is not null)
+        //            continue;
+        //        prop.SetValue(instance, );
+        //        if (!TryToJsonValue(prop.GetValue(obj), out JsonValue? jv))
+        //            return false;
+        //        jo.Add(prop.Name, jv);
+        //    }
+        //    foreach (var field in fields)
+        //    {
+        //        if (field.GetCustomAttribute<NonSerializedAttribute>() is not null)
+        //            continue;
+        //        if (field.GetCustomAttribute<CompilerGeneratedAttribute>() is not null)
+        //            continue;
+        //        if (!TryToJsonValue(field.GetValue(obj), out JsonValue? jv))
+        //            return false;
+        //        jo.Add(field.Name, jv);
+        //    }
+        //}
     }
     public class JsonBoolean : JsonValue, IComparable, IComparable<bool>, IComparable<JsonBoolean>,
         IConvertible, IEquatable<bool>, IEquatable<JsonBoolean>
@@ -202,6 +406,12 @@ namespace qpwakaba
         public override string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
             => ToString();
 
+        public override object ToObject(Type type)
+        {
+            if (type != typeof(bool))
+                throw new ArgumentException();
+            return this.Value;
+        }
         #region implementation of interfaces
         public override JsonValueType Type => JsonValueType.Literal;
         public int CompareTo(object? obj) => this.Value.CompareTo(obj);
@@ -405,6 +615,23 @@ namespace qpwakaba
         public override string ToString() => this.StringValue;
         public override string ToJsonCompatibleString(bool escapeUnicodeCharacter = false)
             => ToString();
+
+        public override object ToObject(Type type)
+        {
+            if (type == typeof(int)) return IntegerValue;
+            if (type == typeof(double)) return DoubleValue;
+            if (type == typeof(long)) return LongValue;
+            if (type == typeof(float)) return FloatValue;
+            if (type == typeof(ulong)) return ULongValue;
+            if (type == typeof(uint)) return UIntValue;
+            if (type == typeof(byte)) return (byte) IntegerValue;
+            if (type == typeof(sbyte)) return (sbyte) IntegerValue;
+            if (type == typeof(short)) return (short) IntegerValue;
+            if (type == typeof(ushort)) return (ushort) IntegerValue;
+            if (type == typeof(decimal)) return DecimalValue;
+            if (type == typeof(string)) return StringValue;
+            throw new ArgumentException();
+        }
 
         #region Equals
         public override bool Equals(object? obj)
@@ -706,6 +933,20 @@ namespace qpwakaba
             }
             return $"{jsonQuotationMark}{builder.ToString()}{jsonQuotationMark}";
         }
+        public override object ToObject(Type type)
+        {
+            if (type == typeof(string)) return this.Value;
+            if (type == typeof(int)) return int.Parse(this.Value);
+            if (type == typeof(uint)) return uint.Parse(this.Value);
+            if (type == typeof(long)) return long.Parse(this.Value);
+            if (type == typeof(ulong)) return ulong.Parse(this.Value);
+            if (type == typeof(byte)) return byte.Parse(this.Value);
+            if (type == typeof(sbyte)) return sbyte.Parse(this.Value);
+            if (type == typeof(short)) return short.Parse(this.Value);
+            if (type == typeof(ushort)) return ushort.Parse(this.Value);
+            if (type.IsEnum) return Enum.Parse(type, this.Value);
+            throw new ArgumentException(type.ToString());
+        }
 
         #region Equals
         public override bool Equals(object? obj)
@@ -902,17 +1143,16 @@ namespace qpwakaba
             this.Parameters = CreateDictionary<string, JsonValue?>(keepOrder);
         }
         public JsonObject(IEnumerable<KeyValuePair<string, JsonValue?>> values, bool keepOrder = false)
-            : this(keepOrder)
+            : this(values.GetEnumerator(), keepOrder)
         {
-            foreach (var current in values)
-            { 
-                if (!this.Parameters.ContainsKey(current.Key))
-                    this.Parameters.Add(current);
-            }
         }
         public JsonObject(IEnumerator<KeyValuePair<string, JsonValue?>> values, bool keepOrder = false)
             : this(keepOrder)
         {
+            while (values.MoveNext())
+            {
+                this.Parameters[values.Current.Key] = values.Current.Value;
+            }
         }
         #endregion
 
@@ -999,6 +1239,55 @@ namespace qpwakaba
             foreach (var parameter in this.Parameters)
                 instance.Parameters[parameter.Key] = parameter.Value?.DeepCopy();
             return instance;
+        }
+
+        public override object ToObject(Type type)
+        {
+            const BindingFlags flag = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                object?[] param = new object?[2];
+                object dict = Activator.CreateInstance(type) ?? throw new Exception();
+                var set = type.GetMethod(nameof(Dictionary<object, object>.Add)) ?? throw new Exception();
+                foreach ((var key, var value) in this)
+                {
+                    param[0] = new JsonString(key).ToObject(type.GenericTypeArguments[0]);
+                    param[1] = value?.ToObject(type.GenericTypeArguments[1]);
+                    set.Invoke(dict, param);
+                }
+                return dict;
+            }
+            else
+            {
+                var fields = type.GetFields(flag);
+                var props = type.GetProperties(flag);
+                var obj = Activator.CreateInstance(type) ?? throw new Exception();
+                foreach (var prop in props)
+                {
+                    if (!this.ContainsKey(prop.Name))
+                        continue;
+                    if (prop.GetCustomAttribute<NonSerializedAttribute>() is not null)
+                        continue;
+                    if (!prop.CanWrite)
+                        continue;
+                    if (prop.GetIndexParameters().Length > 0)
+                        continue;
+                    prop.SetValue(obj, this[prop.Name]?.ToObject(prop.PropertyType));
+                }
+                foreach (var field in fields)
+                {
+                    if (!this.ContainsKey(field.Name))
+                        continue;
+                    if (field.GetCustomAttribute<NonSerializedAttribute>() is not null)
+                        continue;
+                    if (field.GetCustomAttribute<CompilerGeneratedAttribute>() is not null)
+                        continue;
+                    field.SetValue(obj, this[field.Name]?.ToObject(field.FieldType));
+                }
+                return obj;
+            }
+
         }
 
         #region implementation of interfaces
@@ -1154,6 +1443,33 @@ NOT_FOUND:
             for (int i = 0; i < this.Elements.Count; i++)
                 instance.Elements[i] = this.Elements[i];
             return instance;
+        }
+
+        public override object ToObject(Type type)
+        {
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var cnt = this.Count;
+                var etype = type.GenericTypeArguments[0];
+                var list = Activator.CreateInstance(type, cnt) ?? throw new Exception();
+                var add = type.GetMethod(nameof(List<object>.Add)) ?? throw new Exception();
+                object?[] param = new object?[1];
+                foreach (var v in this)
+                {
+                    param[0] = v?.ToObject(etype);
+                    add.Invoke(list, param);
+                }
+                return list;
+            }
+            else if (type.IsArray)
+            {
+                var etype = type.GetElementType() ?? throw new Exception();
+                var arr = Array.CreateInstance(etype, this.Count);
+                for (int i = 0; i < arr.Length; ++i)
+                    arr.SetValue(this[i]?.ToObject(etype), i);
+                return arr;
+            }
+            throw new ArgumentException();
         }
 
         #region implementation of interfaces

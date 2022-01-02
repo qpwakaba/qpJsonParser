@@ -114,7 +114,13 @@ namespace qpwakaba.Utils
         public void Add(TKey key, TValue value) => ((IDictionary<TKey, TValue>) this.dic).Add(key, value);
         public bool ContainsKey(TKey key) => ((IDictionary<TKey, TValue>) this.dic).ContainsKey(key);
         public bool Remove(TKey key) => ((IDictionary<TKey, TValue>) this.dic).Remove(key);
+#if NETSTANDARD2_1
+#pragma warning disable CS8767 // パラメーターの型における参照型の NULL 値の許容が、暗黙的に実装されるメンバーと一致しません。おそらく、NULL 値の許容の属性が原因です。
+#endif
         public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => ((IDictionary<TKey, TValue>) this.dic).TryGetValue(key, out value);
+#if NETSTANDARD2_1
+#pragma warning restore CS8767 // パラメーターの型における参照型の NULL 値の許容が、暗黙的に実装されるメンバーと一致しません。おそらく、NULL 値の許容の属性が原因です。
+#endif
         public void Add(KeyValuePair<TKey, TValue> item) => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Add(item);
         public void Clear() => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Clear();
         public bool Contains(KeyValuePair<TKey, TValue> item) => ((ICollection<KeyValuePair<TKey, TValue>>) this.dic).Contains(item);
